@@ -242,8 +242,14 @@ class Jin10WebFlashClient:
 
     @staticmethod
     def _should_skip_record(title: str, content: str) -> bool:
-        skip_prefixes = ("金十图示",)
-        return title.startswith(skip_prefixes) or content.startswith(skip_prefixes)
+        combined_text = f"{title} {content}"
+        skip_prefixes = ("金十图示", "VIP")
+        skip_terms = ("解锁VIP快讯",)
+        return (
+            title.startswith(skip_prefixes)
+            or content.startswith(skip_prefixes)
+            or any(term in combined_text for term in skip_terms)
+        )
 
     @staticmethod
     def _strip_title_brackets(value: str) -> str:
