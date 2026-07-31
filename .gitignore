@@ -219,3 +219,5 @@ __marimo__/
 
 # Project crawler outputs
 finance_news_crawler/crawler_data/
+
+finance_news_analysis/
