@@ -1,0 +1,1727 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股市新闻看板 - React + ECharts</title>
+
+    <!-- React 18 -->
+    <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+
+    <!-- Babel standalone for TypeScript/JSX transpilation -->
+    <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #0f0f1e;
+            --bg-card: #1a1a2e;
+            --bg-card-hover: #222240;
+            --text-primary: #e4e4f0;
+            --text-secondary: #a0a0b8;
+            --text-muted: #71718a;
+            --accent: #6c5ce7;
+            --accent-light: #a29bfe;
+            --positive: #ff6b6b;
+            --negative: #51cf66;
+            --neutral: #718096;
+            --gold: #ffd43b;
+            --border: #2a2a4a;
+            --shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        body {
+            font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        #root { width: 100%; }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            padding: 20px 0;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-inner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #a29bfe, #6c5ce7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header .subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .btn-refresh {
+            background: linear-gradient(135deg, #6c5ce7, #4834d4);
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-refresh:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(108,92,231,0.4); }
+        .btn-refresh:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        /* Loading */
+        .loading-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            gap: 16px;
+        }
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { color: var(--text-muted); font-size: 15px; }
+
+        /* Section */
+        .section { margin-bottom: 24px; }
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title .icon { font-size: 18px; }
+
+        /* 导出按钮区 */
+        .export-header {
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .export-btns { display: flex; gap: 8px; flex-shrink: 0; }
+        .export-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 6px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .export-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); transform: translateY(-1px); }
+        .export-btn:active { transform: translateY(0); }
+
+        /* Stat cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 18px 20px;
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+        }
+        .stat-card:hover { background: var(--bg-card-hover); transform: translateY(-2px); }
+        .stat-value { font-size: 30px; font-weight: 800; font-family: "Inter", sans-serif; }
+        .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+        .stat-card.pos .stat-value { color: var(--positive); }
+        .stat-card.neg .stat-value { color: var(--negative); }
+        .stat-card.neu .stat-value { color: var(--neutral); }
+        .stat-card.acc .stat-value { color: var(--accent-light); }
+
+        /* Sentiment bar */
+        .sentiment-bar-wrap {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 16px 20px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+        .bar-label { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+        .bar-track {
+            display: flex;
+            height: 28px;
+            border-radius: 14px;
+            overflow: hidden;
+            background: var(--border);
+        }
+        .bar-pos { background: var(--positive); transition: width 0.5s; }
+        .bar-neg { background: var(--negative); transition: width 0.5s; }
+        .bar-neu { background: var(--neutral); transition: width 0.5s; }
+        .bar-legend {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Daily summary */
+        .daily-summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 14px;
+            padding: 20px 24px;
+            color: #fff;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 16px rgba(102,126,234,0.25);
+        }
+        .daily-summary .ds-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .daily-summary .ds-content {
+            font-size: 14px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            opacity: 0.95;
+        }
+
+        /* Sector tags */
+        .sector-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+        .sector-tag {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 5px 14px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .sector-tag .count { color: var(--accent-light); font-weight: 700; margin-left: 4px; }
+
+        /* Top news */
+        .top-news-list { display: flex; flex-direction: column; gap: 10px; }
+        .top-news-item {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            border-left: 4px solid var(--neutral);
+            transition: all 0.2s;
+        }
+        .top-news-item:hover { background: var(--bg-card-hover); }
+        .top-news-item.sent-利好 { border-left-color: var(--positive); }
+        .top-news-item.sent-利空 { border-left-color: var(--negative); }
+        .rank-badge {
+            width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 800; color: #fff; flex-shrink: 0;
+            background: var(--text-muted);
+        }
+        .rank-badge.r1 { background: linear-gradient(135deg, #ffd43b, #ff922b); }
+        .rank-badge.r2 { background: linear-gradient(135deg, #a0a0b8, #71718a); }
+        .rank-badge.r3 { background: linear-gradient(135deg, #d6bcfa, #b794f4); }
+        .rank-badge.r4, .rank-badge.r5 { background: var(--accent); }
+        .tn-body { flex: 1; min-width: 0; }
+        .tn-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+        .tn-meta { display: flex; gap: 6px; flex-wrap: wrap; font-size: 11px; }
+        .tag {
+            display: inline-block; padding: 1px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: 500;
+        }
+        .tag-src { background: #2d2d4a; color: var(--text-secondary); }
+        .tag-sent-pos { background: rgba(255,107,107,0.2); color: var(--positive); }
+        .tag-sent-neg { background: rgba(81,207,102,0.2); color: var(--negative); }
+        .tag-sent-neu { background: rgba(113,128,150,0.2); color: var(--neutral); }
+        .tag-market { background: rgba(108,92,231,0.2); color: var(--accent-light); }
+        .tag-sector { background: rgba(64,224,208,0.15); color: #40e0d0; }
+        .sent-badge {
+            display: inline-flex; align-items: center; gap: 3px;
+            padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;
+        }
+        .sent-badge.利好 { background: rgba(255,107,107,0.2); color: var(--positive); }
+        .sent-badge.利空 { background: rgba(81,207,102,0.2); color: var(--negative); }
+        .sent-badge.中性 { background: rgba(113,128,150,0.2); color: var(--neutral); }
+        .stars { font-size: 15px; letter-spacing: 1px; }
+        .stars .filled { color: var(--gold); }
+        .stars .empty { color: var(--border); }
+        .star-label { font-size: 10px; color: var(--text-muted); text-align: center; margin-top: 2px; }
+        .star-rating { flex-shrink: 0; text-align: center; min-width: 68px; }
+
+        /* Master cards */
+        .masters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 16px;
+        }
+        .master-card {
+            background: var(--bg-card);
+            border-radius: 14px;
+            padding: 18px 20px;
+            border: 1px solid var(--border);
+            border-top: 4px solid var(--accent);
+            transition: all 0.2s;
+            position: relative;
+        }
+        .master-card:hover { background: var(--bg-card-hover); transform: translateY(-2px); box-shadow: var(--shadow); }
+        .mc-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .mc-avatar {
+            width: 44px; height: 44px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; flex-shrink: 0;
+        }
+        .mc-info { flex: 1; min-width: 0; }
+        .mc-name { font-size: 15px; font-weight: 700; }
+        .mc-school { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+        .mc-sent {
+            display: inline-flex; align-items: center; padding: 3px 10px;
+            border-radius: 12px; font-size: 11px; font-weight: 700; white-space: nowrap;
+        }
+        .mc-sent.乐观 { background: rgba(255,107,107,0.2); color: var(--positive); }
+        .mc-sent.谨慎 { background: rgba(81,207,102,0.2); color: var(--negative); }
+        .mc-sent.中性 { background: rgba(113,128,150,0.2); color: var(--neutral); }
+        .mc-view { font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 10px; }
+        .mc-action {
+            background: rgba(108,92,231,0.1); border-radius: 8px; padding: 8px 12px;
+            font-size: 12px; color: var(--text-primary); margin-bottom: 8px;
+        }
+        .mc-action .al { color: var(--accent-light); font-weight: 700; margin-right: 4px; }
+        .mc-sectors { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+        .mc-sector { font-size: 11px; padding: 2px 8px; border-radius: 4px; }
+        .mc-sector.opp { background: rgba(255,107,107,0.15); color: var(--positive); }
+        .mc-sector.risk { background: rgba(81,207,102,0.15); color: var(--negative); }
+        .mc-insight {
+            font-size: 12px; color: #e879f9; font-style: italic;
+            border-top: 1px dashed var(--border); padding-top: 8px;
+        }
+        .mc-method {
+            position: absolute; top: 10px; right: 14px;
+            font-size: 10px; color: var(--text-muted);
+        }
+
+        /* Enhanced master card - new fields */
+        .mc-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+        .mc-badge {
+            display: inline-flex; align-items: center; gap: 3px;
+            padding: 2px 9px; border-radius: 10px; font-size: 11px; font-weight: 600;
+        }
+        .mc-badge.phase { background: rgba(108,92,231,0.15); color: var(--accent-light); }
+        .mc-badge.risk-high { background: rgba(255,107,107,0.15); color: var(--positive); }
+        .mc-badge.risk-mid { background: rgba(255,212,59,0.15); color: var(--gold); }
+        .mc-badge.risk-low { background: rgba(81,207,102,0.15); color: var(--negative); }
+        .mc-badge.pos { background: rgba(108,92,231,0.12); color: var(--accent-light); }
+        .mc-detail-toggle {
+            background: none; border: 1px solid var(--border); color: var(--text-muted);
+            padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;
+            transition: all 0.2s; margin-top: 6px;
+        }
+        .mc-detail-toggle:hover { background: var(--bg-card-hover); color: var(--accent-light); border-color: var(--accent); }
+        .mc-detail { margin-top: 10px; display: none; }
+        .mc-detail.show { display: block; }
+        .mc-detail-section { margin-bottom: 10px; }
+        .mc-detail-label {
+            font-size: 11px; font-weight: 700; color: var(--accent-light);
+            margin-bottom: 5px; display: flex; align-items: center; gap: 4px;
+        }
+        .mc-sector-item {
+            background: var(--bg-primary); border-radius: 8px; padding: 8px 10px;
+            margin-bottom: 5px; font-size: 12px;
+        }
+        .mc-sector-item .si-header { display: flex; justify-content: space-between; margin-bottom: 3px; }
+        .mc-sector-item .si-name { font-weight: 600; color: var(--text-primary); }
+        .mc-sector-item .si-signal { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+        .si-signal.利好 { background: rgba(255,107,107,0.2); color: var(--positive); }
+        .si-signal.利空 { background: rgba(81,207,102,0.2); color: var(--negative); }
+        .si-signal.中性 { background: rgba(113,128,150,0.2); color: var(--neutral); }
+        .mc-sector-item .si-reason { color: var(--text-secondary); line-height: 1.5; font-size: 11px; }
+        .mc-sector-item .si-view { color: #74b9ff; font-size: 11px; margin-top: 3px; }
+        /* 品种分析卡片 */
+        .mc-inst-section { margin-top: 8px; }
+        .mc-inst-label { font-size: 11px; font-weight: 700; color: var(--accent-light); margin-bottom: 5px; }
+        .mc-inst-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+        .mc-inst-card {
+            background: var(--bg-primary); border-radius: 8px; padding: 8px 10px;
+            border-left: 3px solid var(--neutral); position: relative;
+        }
+        .mc-inst-card.偏多 { border-left-color: var(--positive); }
+        .mc-inst-card.偏空 { border-left-color: var(--negative); }
+        .mc-inst-card.中性 { border-left-color: var(--neutral); }
+        .mc-inst-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .mc-inst-name { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+        .mc-inst-signal { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; }
+        .mc-inst-signal.偏多 { background: rgba(255,107,107,0.2); color: var(--positive); }
+        .mc-inst-signal.偏空 { background: rgba(81,207,102,0.2); color: var(--negative); }
+        .mc-inst-signal.中性 { background: rgba(113,128,150,0.2); color: var(--neutral); }
+        .mc-inst-count { font-size: 10px; color: var(--text-muted); margin-bottom: 3px; }
+        .mc-inst-strategy { font-size: 10px; color: #74b9ff; line-height: 1.4; }
+        .mc-inst-view { font-size: 10px; color: var(--text-secondary); line-height: 1.4; margin-top: 3px; }
+        .mc-inst-toggle {
+            font-size: 11px; color: var(--accent-light); background: none; border: 1px solid var(--border);
+            border-radius: 6px; padding: 3px 10px; cursor: pointer; margin-top: 6px; width: 100%; text-align: center;
+        }
+        .mc-inst-toggle:hover { background: var(--bg-card-hover); border-color: var(--accent); }
+        .mc-inst-detail { display: none; margin-top: 6px; }
+        .mc-inst-detail.show { display: block; }
+        .mc-timing-item {
+            display: flex; gap: 6px; margin-bottom: 4px; font-size: 11px;
+            background: var(--bg-primary); padding: 5px 8px; border-radius: 6px;
+        }
+        .mc-timing-type {
+            flex-shrink: 0; font-weight: 700; padding: 1px 6px; border-radius: 4px; font-size: 10px;
+        }
+        .mc-timing-type.买入时机 { background: rgba(255,107,107,0.15); color: var(--positive); }
+        .mc-timing-type.止盈 { background: rgba(255,212,59,0.15); color: var(--gold); }
+        .mc-timing-type.观望条件 { background: rgba(113,128,150,0.15); color: var(--neutral); }
+        .mc-timing-type.潜在 { background: rgba(108,92,231,0.15); color: var(--accent-light); }
+        .mc-timing-signal { color: var(--text-secondary); line-height: 1.5; }
+        .mc-watch-item {
+            display: flex; align-items: flex-start; gap: 5px; font-size: 11px;
+            color: var(--text-secondary); margin-bottom: 3px; line-height: 1.5;
+        }
+        .mc-watch-item::before { content: '▸'; color: var(--accent-light); flex-shrink: 0; }
+
+        /* Market indices module */
+        .market-indices-section { margin-bottom: 24px; }
+        .mi-summary {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 12px; padding: 14px 18px; margin-bottom: 14px;
+            border: 1px solid var(--border); font-size: 13px; color: var(--text-secondary);
+            line-height: 1.7;
+        }
+        .mi-summary .trend-tag {
+            display: inline-block; padding: 1px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: 700; margin: 0 3px;
+        }
+        .trend-tag.偏强 { background: rgba(255,107,107,0.2); color: var(--positive); }
+        .trend-tag.偏弱 { background: rgba(81,207,102,0.2); color: var(--negative); }
+        .trend-tag.震荡 { background: rgba(113,128,150,0.2); color: var(--neutral); }
+        .mi-groups { display: flex; flex-direction: column; gap: 12px; }
+        .mi-group { }
+        .mi-group-title {
+            font-size: 13px; font-weight: 700; color: var(--text-muted);
+            margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+        }
+        .mi-cards {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .mi-card {
+            background: var(--bg-card); border-radius: 10px; padding: 14px 16px;
+            border: 1px solid var(--border); transition: all 0.2s; position: relative;
+        }
+        .mi-card:hover { background: var(--bg-card-hover); transform: translateY(-2px); box-shadow: var(--shadow); }
+        .mi-card.up { border-left: 3px solid var(--positive); }
+        .mi-card.down { border-left: 3px solid var(--negative); }
+        .mi-card.flat { border-left: 3px solid var(--neutral); }
+        .mi-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .mi-price { font-size: 22px; font-weight: 800; font-family: "Inter", sans-serif; margin-top: 4px; }
+        .mi-change { font-size: 12px; font-weight: 700; margin-top: 2px; }
+        .mi-change.up { color: var(--positive); }
+        .mi-change.down { color: var(--negative); }
+        .mi-change.flat { color: var(--neutral); }
+        .mi-range { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+        .mi-source { font-size: 9px; color: var(--text-muted); position: absolute; top: 8px; right: 10px; }
+        .mi-refresh-btn {
+            background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary);
+            padding: 4px 12px; border-radius: 8px; cursor: pointer; font-size: 12px;
+            transition: all 0.2s;
+        }
+        .mi-refresh-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        /* Charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .chart-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 16px 20px;
+            border: 1px solid var(--border);
+        }
+        .chart-card.full { grid-column: 1 / -1; }
+        .chart-title { font-size: 14px; color: var(--text-muted); margin-bottom: 8px; }
+        .chart-box { height: 220px; }
+
+        /* Tabs */
+        .tabs {
+            display: flex; gap: 4px; flex-wrap: wrap;
+            border-bottom: 2px solid var(--border); margin-bottom: 16px;
+        }
+        .tab {
+            padding: 10px 18px; cursor: pointer; font-size: 14px;
+            color: var(--text-muted); border-bottom: 3px solid transparent;
+            transition: all 0.2s; user-select: none;
+        }
+        .tab:hover { color: var(--accent-light); }
+        .tab.active { color: var(--accent-light); border-bottom-color: var(--accent); font-weight: 600; }
+        .tab-count {
+            font-size: 11px; background: var(--border); padding: 1px 7px;
+            border-radius: 10px; margin-left: 4px;
+        }
+        .tab.active .tab-count { background: rgba(108,92,231,0.3); color: var(--accent-light); }
+
+        /* News items */
+        .news-list { display: flex; flex-direction: column; gap: 10px; }
+        .news-item {
+            background: var(--bg-card);
+            border-radius: 10px; padding: 14px 18px;
+            border-left: 4px solid var(--neutral); transition: all 0.2s;
+        }
+        .news-item:hover { background: var(--bg-card-hover); }
+        .news-item.sent-利好 { border-left-color: var(--positive); }
+        .news-item.sent-利空 { border-left-color: var(--negative); }
+        .news-item.imp-high { background: rgba(255,107,107,0.05); }
+        .ni-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+        .ni-content {
+            font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .ni-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 11px; }
+        .llm-card {
+            background: rgba(108,92,231,0.08); border: 1px solid rgba(108,92,231,0.2);
+            border-radius: 8px; padding: 8px 12px; margin-top: 8px; font-size: 12px;
+        }
+        .llm-card .ll { color: var(--accent-light); font-weight: 700; margin-right: 4px; }
+
+        /* No data */
+        .no-data { text-align: center; padding: 80px 20px; color: var(--text-muted); }
+        .no-data p { font-size: 16px; margin-bottom: 8px; }
+        .no-data .cmd { font-size: 13px; color: var(--accent-light); font-family: monospace; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container { padding: 0 12px; }
+            .charts-grid { grid-template-columns: 1fr; }
+            .masters-grid { grid-template-columns: 1fr; }
+            .mi-cards { grid-template-columns: repeat(2, 1fr); }
+            .stats-grid { grid-template-columns: repeat(3, 1fr); }
+            .stat-card { padding: 12px; }
+            .stat-value { font-size: 24px; }
+            .top-news-item { flex-direction: column; gap: 8px; }
+            .star-rating { flex-direction: row; justify-content: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- 用 text/plain 承载 TS/JSX 源码，由下方引导脚本用 Babel 转译后执行。
+         直接用 type="text/babel" 时，Babel 内置转译器不会为 typescript 预设传入 filename，
+         导致 TypeScript 预设报错并静默跳过，#root 永远为空。 -->
+    <script type="text/plain" id="app-source" data-presets="typescript,react">
+    // React 18 UMD 全局变量（通过 CDN 引入），无需 ES module import
+    const { useState, useEffect, useRef, useCallback } = React;
+    // ReactDOM 全局已包含 createRoot (React 18 UMD 构建)
+
+    // ============================================================
+    // TypeScript 类型定义
+    // ============================================================
+    interface NewsItem {
+        title: string;
+        content: string;
+        source: string;
+        url: string;
+        publish_time: string;
+        markets: string[];
+        sentiment: string;
+        impact_level: string;
+        affected_sectors: string[];
+        llm_analysis?: string;
+        llm_prediction?: string;
+        llm_suggestion?: string;
+        llm_confidence?: number;
+        _score?: number;
+        _stars?: number;
+    }
+
+    interface Stats {
+        total: number;
+        利好: number;
+        利空: number;
+        中性: number;
+        高影响: number;
+        中影响: number;
+        低影响: number;
+        markets: Record<string, number>;
+        sectors: Record<string, number>;
+    }
+
+    interface DetailedAnalysis {
+        sector: string;
+        signal: string;
+        reasoning: string;
+        related_news: string[];
+        master_view: string;
+    }
+
+    interface TimingSignal {
+        type: string;
+        signal: string;
+    }
+
+    interface InstrumentAnalysis {
+        instrument: string;
+        icon: string;
+        category: string;
+        signal: string;
+        news_count: number;
+        positive: number;
+        negative: number;
+        neutral: number;
+        master_view: string;
+        strategy: string;
+        news_digest: string;
+        related_news: string[];
+    }
+
+    interface MasterResult {
+        master_key: string;
+        master_name: string;
+        master_emoji: string;
+        school: string;
+        tagline: string;
+        color: string;
+        market_view: string;
+        opportunity_sectors: string[];
+        risk_sectors: string[];
+        action: string;
+        key_insight: string;
+        sentiment: string;
+        confidence: number;
+        relevant_news_count: number;
+        analysis_method: string;
+        detailed_analysis?: DetailedAnalysis[];
+        timing_signals?: TimingSignal[];
+        watch_points?: string[];
+        risk_level?: string;
+        position_advice?: string;
+        market_phase?: string;
+        philosophy?: string;
+        instrument_analysis?: InstrumentAnalysis[];
+    }
+
+    interface MarketIndex {
+        name: string;
+        code: string;
+        market: string;
+        group: string;
+        desc: string;
+        latest: number;
+        prev_close: number;
+        change: number;
+        change_pct: number;
+        high: number;
+        low: number;
+        open: number;
+        data_source: string;
+    }
+
+    interface MarketIndexData {
+        indices: MarketIndex[];
+        fetch_time: string;
+        source: string;
+        total: number;
+        market_summary?: {
+            summary: string;
+            a_share_trend: string;
+            us_trend: string;
+            kr_trend: string;
+        };
+    }
+
+    interface TrendItem {
+        date: string;
+        total: number;
+        positive: number;
+        negative: number;
+        neutral: number;
+        markets: Record<string, number>;
+    }
+
+    interface NewsData {
+        analyze_time: string;
+        total_count: number;
+        daily_summary: string;
+        master_analysis: MasterResult[];
+        news: NewsItem[];
+    }
+
+    // ============================================================
+    // API 工具函数
+    // ============================================================
+    const API_BASE = '';
+
+    async function fetchAPI<T>(url: string): Promise<T> {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`API ${url} returned ${resp.status}`);
+        return resp.json();
+    }
+
+    // ============================================================
+    // 星级评分计算（前端版，用于 /api/news 返回的数据）
+    // ============================================================
+    const HIGH_IMPACT_KW = [
+        '降息','加息','降准','美联储','央行','国务院',
+        '贸易战','关税','制裁','战争','冲突',
+        '退市','爆仓','暴跌','涨停','崩盘',
+        '重大','紧急','突发','重磅',
+    ];
+    const SRC_WEIGHT: Record<string, number> = {
+        '财联社': 1.5, '金十数据': 1.5, '华尔街见闻': 1.3, '新浪财经': 1.1, '东方财富': 1.0,
+    };
+
+    // 特朗普/中美政策高优先加分关键词
+    const TRUMP_CN_KW = ['特朗普', '川普', '中美', '对华', '涉华', '对等关税', '301', '商务部', '贸易战'];
+
+    // ============================================================
+    // 星级评分：反映利空/利多程度（而非单纯影响力）
+    // ============================================================
+
+    function computeScore(n: NewsItem): number {
+        let s = 0;
+        // 基础强度（影响等级）
+        s += { '高': 3, '中': 2, '低': 1 }[n.impact_level] || 1;
+        // 情绪方向：利好/利空的核心权重（决定星级高低的主要因子）
+        if (n.sentiment === '利好' || n.sentiment === '利空') {
+            s += 2.5;
+        }
+        // 来源权重
+        s += (SRC_WEIGHT[n.source] || 1) - 1;
+        // 高影响关键词（政策/事件类词汇加分）
+        const text = `${n.title} ${n.content}`;
+        s += HIGH_IMPACT_KW.filter(kw => text.includes(kw)).length * 0.5;
+        // 相关板块越多，影响面越广
+        s += Math.min(n.affected_sectors.length, 3) * 0.3;
+        // LLM 深度分析置信度
+        if (n.llm_confidence && n.llm_confidence > 0) s += n.llm_confidence * 0.5;
+        if (n.llm_analysis) s += 0.5;
+        // 特朗普/中美政策额外加分
+        if (TRUMP_CN_KW.some(kw => text.includes(kw))) s += 1.5;
+        return s;
+    }
+
+    function scoreToStars(score: number, sentiment: string): number {
+        // 利好/利空新闻：阈值更高，星级反映情绪强度
+        if (sentiment === '利好' || sentiment === '利空') {
+            if (score >= 8) return 5;
+            if (score >= 6.5) return 4;
+            if (score >= 5) return 3;
+            if (score >= 3.5) return 2;
+            return 1;
+        }
+        // 中性新闻：阈值不变，星级反映影响力
+        if (score >= 6) return 5;
+        if (score >= 4.5) return 4;
+        if (score >= 3) return 3;
+        if (score >= 2) return 2;
+        return 1;
+    }
+
+    // 按情绪动态显示星级标签
+    const SENTIMENT_STAR_LABELS: Record<string, Record<number, string>> = {
+        '利好': { 5: '极度利好', 4: '强利好', 3: '中等利好', 2: '弱利好', 1: '轻微利好' },
+        '利空': { 5: '极度利空', 4: '强利空', 3: '中等利空', 2: '弱利空', 1: '轻微利空' },
+        '中性': { 5: '极强影响', 4: '强影响', 3: '中等影响', 2: '弱影响', 1: '轻微影响' },
+    };
+
+    // ============================================================
+    // 宏观/行业新闻过滤：排除纯行情播报，保留宏观政策和行业变动
+    // ============================================================
+
+    // 强宏观关键词（标题含这些词时直接保留，即使标题同时含行情词）
+    // 如"美联储按兵不动！黄金股走强"→ 含"美联储"→ 保留
+    const STRONG_MACRO_KW = [
+        // 政策/监管机构
+        '美联储', '央行', '国务院', '财政部', '发改委', '证监会', '银保监',
+        '商务部', '外交部', '监管',
+        // 货币政策
+        '降息', '加息', '降准', '利率决议', '货币政策', 'PCE', 'CPI', 'PPI',
+        // 贸易/地缘政治
+        '特朗普', '川普', '中美', '对华', '涉华', '关税', '贸易战', '对等关税',
+        '制裁', '战争', '军事', '冲突', '伊朗', '俄罗斯', '乌克兰', '北约', '中东',
+        '磋商', '谈判', '协议', '涉台', '涉港',
+        // 财报/业绩
+        '财报', '业绩', '净利润', '营收', '盈利', '电话会',
+        // 资本运作
+        '收购', '并购', '重组', '退市', 'IPO', '回购', '增发',
+        // 行业政策
+        '法案', '改革', '规划', '补贴', '减税', '禁令',
+        // 大宗商品政策
+        'OPEC', '减产', '增产',
+        // 风险事件
+        '爆雷', '违约', '处罚', '调查', '反腐', '罚款',
+        // 经济数据
+        'GDP', 'PMI', '通胀', '就业', '失业率',
+        // 会议/论坛
+        '达沃斯', '峰会', 'G7', 'G20',
+    ];
+
+    // 纯行情播报关键词（标题含这些词且无强宏观关键词时，排除）
+    const QUOTE_KW = [
+        // 涨跌停/板
+        '涨停分析', '午间涨停', '涨停板', '连板', '封板', '打板', '炸板',
+        '封跌停', '涨停', '跌停',
+        // 盘面时段
+        '开盘', '收盘', '午评', '午盘', '早盘', '盘面', '盘口', '盘后',
+        // 涨跌幅描述
+        '涨跌幅', '涨超', '跌超', '收涨', '收跌', '涨近', '跌近',
+        '涨逾', '跌逾', '涨幅', '跌幅', '大涨', '大跌', '暴涨', '暴跌',
+        '涨至', '跌至', '再涨', '再跌', '转涨', '转跌',
+        // 指数
+        '指数涨', '指数跌', '创业板指', '科创50', '上证指数', '深证成指', '沪深300',
+        '均跌', '均涨', '齐涨', '齐跌', '齐创',
+        // ETF/资金
+        'ETF甄选', 'ETF涨', 'ETF跌', '资金流', '净买入', '净卖出',
+        '成交额突破', '成交额超',
+        // 期货盘面
+        '股指期货', '指数期货跌', '指数期货涨', '结算价',
+        // 日内波动
+        '日涨幅', '日跌幅', '日内涨', '日内跌', '盘中跌', '盘中涨',
+        '盘中高点', '触及盘中',
+        // 个股/板块异动
+        '短线跳水', '短线拉升', '急变', '走高', '走低', '走强', '走弱',
+        '逆势活跃', '逆势走强', '震荡反弹', '震荡走强', '震荡回升', '震荡走弱',
+        '板块逆势', '板块活跃', '冲高', '快速冲高',
+        // 价格新高/新低
+        '创新高', '创历史新高', '新高', '新低', '刷新',
+        // 破发/挂牌
+        '破发', '挂牌',
+        // 颜色播报
+        '飘绿', '飘红',
+        // 速报/精选
+        '速报', '新闻精选', '新闻联播', '盘中宝', '风口研报',
+        // 其他行情词
+        '基点', '触底回升',
+    ];
+
+    // 宏观政策/行业变动关键词（内容含这些词的保留，用于内容匹配）
+    const MACRO_KW = [
+        // ===== 特朗普/中美 =====
+        '特朗普', '川普', '中美', '对华', '涉华', '对等关税', '301', '商务部',
+        '国务院', '财政部', '发改委', '证监会', '银保监', '监管', '外交部', '大使馆',
+        '关税', '贸易战', '制裁', '冲突', '战争', '军事', '打击',
+        // ===== 央行/美联储 =====
+        '美联储', '央行', '降息', '加息', '降准', '货币政策', '利率决议',
+        // ===== 地缘政治 =====
+        '美国', '伊朗', '俄罗斯', '乌克兰', '欧盟', '北约', '中东', '南海',
+        // ===== 宏观政策 =====
+        '政策', '改革', '规划', '补贴', '减税', '法案',
+        '财经事件', '经济数据', '重点关注',
+        // ===== 行业/科技 =====
+        '行业', '产业', '芯片', '半导体', '新能源', '人工智能', '科技',
+        '涨价', '降价', '产能', '需求', '供给', '存储', 'DRAM', 'HBM',
+        // ===== 大宗商品 =====
+        '原油', '黄金', '大宗商品', '通胀', '就业', 'GDP', '国债',
+        // ===== 资本 =====
+        'IPO', '并购', '重组', '退市', '回购', '增持', '减持',
+        '财报', '业绩', '净利润', '营收', '盈利', '电话会',
+        // ===== 风险事件 =====
+        '爆雷', '违约', '处罚', '调查', '反腐',
+        // ===== 其他 =====
+        '油价', '地缘', '避险', '风险',
+        '人工智能动态', '持仓报告',
+        'OPEC', '减产', '增产', '达沃斯', '峰会',
+    ];
+
+    function isMacroNews(n: NewsItem): boolean {
+        const title = n.title || '';
+        const text = `${title} ${n.content || ''}`;
+
+        // 1. 标题含强宏观关键词 → 直接保留（政策/事件优先级最高）
+        //    即使标题同时有行情词（如"走强"），宏观内容才是核心
+        if (STRONG_MACRO_KW.some(kw => title.includes(kw))) return true;
+
+        // 2. 标题含行情播报关键词 → 过滤（纯价格播报，无宏观内容）
+        if (QUOTE_KW.some(kw => title.includes(kw))) return false;
+
+        // 3. 标题含价格点位+方向 → 过滤（"现货黄金跌破4000美元"等）
+        if (/\d+(美元|元|点|基点|\/桶|\/盎司)/.test(title) && /(涨|跌|破|触及|报)/.test(title)) return false;
+
+        // 4. 标题含百分比涨跌 → 过滤（"涨超5%"等）
+        if (/(涨|跌)(超|近|幅)?\s*\d/.test(title)) return false;
+
+        // 5. 标题含"现货XX"+涨跌 → 过滤（"现货白银日内涨超3%"等）
+        if (/现货.*(涨|跌)/.test(title)) return false;
+
+        // 6. 内容含宏观关键词 → 保留
+        if (MACRO_KW.some(kw => text.includes(kw))) return true;
+
+        // 7. 高影响等级且标题不像行情播报 → 保留
+        if (n.impact_level === '高') return true;
+
+        return false;
+    }
+
+    function getTopNews(news: NewsItem[], n: number = 10): NewsItem[] {
+        return news.map(item => {
+            const score = computeScore(item);
+            return { ...item, _score: Math.round(score * 100) / 100, _stars: scoreToStars(score, item.sentiment) };
+        }).sort((a, b) => {
+            // 按发布时间降序（最新的在前）
+            const timeA = a.publish_time || '';
+            const timeB = b.publish_time || '';
+            return timeB.localeCompare(timeA);
+        }).slice(0, n);
+    }
+
+    function getStats(news: NewsItem[]): Stats {
+        const stats: Stats = {
+            total: news.length, 利好: 0, 利空: 0, 中性: 0,
+            高影响: 0, 中影响: 0, 低影响: 0,
+            markets: {}, sectors: {},
+        };
+        news.forEach(n => {
+            // 情绪计数（显式判断，避免 0 被当作 falsy 短路）
+            if (n.sentiment === '利好') stats.利好++;
+            else if (n.sentiment === '利空') stats.利空++;
+            else stats.中性++;
+            // 影响等级计数
+            if (n.impact_level === '高') stats.高影响++;
+            else if (n.impact_level === '中') stats.中影响++;
+            else stats.低影响++;
+            n.markets.forEach(m => { stats.markets[m] = (stats.markets[m] || 0) + 1; });
+            n.affected_sectors.forEach(s => { stats.sectors[s] = (stats.sectors[s] || 0) + 1; });
+        });
+        return stats;
+    }
+
+    // ============================================================
+    // 组件: Header
+    // ============================================================
+    const Header: React.FC<{ time: string; onRefresh: () => void; refreshing: boolean }> = ({ time, onRefresh, refreshing }) => (
+        <div className="header">
+            <div className="container header-inner">
+                <div>
+                    <h1>股市新闻看板</h1>
+                    <div className="subtitle">
+                        A股 / 恒指期货主连 / 美股 / 黄金期货 / 白银期货 · React + TypeScript + ECharts
+                        {time && ` · 分析时间: ${time}`}
+                    </div>
+                </div>
+                <button className="btn-refresh" onClick={onRefresh} disabled={refreshing}>
+                    {refreshing ? '采集中...' : '🔄 刷新数据'}
+                </button>
+            </div>
+        </div>
+    );
+
+    // ============================================================
+    // 组件: DailySummary
+    // ============================================================
+    const DailySummary: React.FC<{ summary: string }> = ({ summary }) => {
+        if (!summary) return null;
+        return (
+            <div className="daily-summary">
+                <div className="ds-title">🤖 AI 每日市场总结</div>
+                <div className="ds-content">{summary}</div>
+            </div>
+        );
+    };
+
+    // ============================================================
+    // 组件: StatsGrid
+    // ============================================================
+    const StatsGrid: React.FC<{ stats: Stats }> = ({ stats }) => {
+        const pct = (v: number) => stats.total > 0 ? (v / stats.total * 100).toFixed(1) : '0.0';
+        return (
+            <>
+                <div className="stats-grid">
+                    <div className="stat-card acc">
+                        <div className="stat-value">{stats.total}</div>
+                        <div className="stat-label">总新闻数</div>
+                    </div>
+                    <div className="stat-card pos">
+                        <div className="stat-value">{stats.利好}</div>
+                        <div className="stat-label">利好</div>
+                    </div>
+                    <div className="stat-card neg">
+                        <div className="stat-value">{stats.利空}</div>
+                        <div className="stat-label">利空</div>
+                    </div>
+                    <div className="stat-card neu">
+                        <div className="stat-value">{stats.中性}</div>
+                        <div className="stat-label">中性</div>
+                    </div>
+                    <div className="stat-card">
+                        <div className="stat-value" style={{ color: 'var(--positive)' }}>{stats.高影响}</div>
+                        <div className="stat-label">高影响</div>
+                    </div>
+                    <div className="stat-card">
+                        <div className="stat-value" style={{ color: 'var(--gold)' }}>{stats.中影响}</div>
+                        <div className="stat-label">中影响</div>
+                    </div>
+                </div>
+                <div className="sentiment-bar-wrap">
+                    <div className="bar-label">市场情绪分布</div>
+                    <div className="bar-track">
+                        <div className="bar-pos" style={{ width: `${pct(stats.利好)}%` }}></div>
+                        <div className="bar-neg" style={{ width: `${pct(stats.利空)}%` }}></div>
+                        <div className="bar-neu" style={{ width: `${pct(stats.中性)}%` }}></div>
+                    </div>
+                    <div className="bar-legend">
+                        <span>🔴 利好 {pct(stats.利好)}%</span>
+                        <span>🟢 利空 {pct(stats.利空)}%</span>
+                        <span>⚪ 中性 {pct(stats.中性)}%</span>
+                    </div>
+                </div>
+            </>
+        );
+    };
+
+    // ============================================================
+    // 组件: SectorTags
+    // ============================================================
+    const SectorTags: React.FC<{ sectors: Record<string, number> }> = ({ sectors }) => {
+        const entries = Object.entries(sectors).sort(([, a], [, b]) => b - a);
+        if (entries.length === 0) return null;
+        return (
+            <div className="sector-tags">
+                {entries.map(([sector, count]) => (
+                    <span key={sector} className="sector-tag">{sector}<span className="count">{count}</span></span>
+                ))}
+            </div>
+        );
+    };
+
+    // ============================================================
+    // 组件: TopNews
+    // ============================================================
+    const StarRating: React.FC<{ stars: number; sentiment: string }> = ({ stars, sentiment }) => {
+        const label = SENTIMENT_STAR_LABELS[sentiment]?.[stars] || SENTIMENT_STAR_LABELS['中性']?.[stars] || '';
+        return (
+            <div className="star-rating">
+                <div className="stars">
+                    {[0,1,2,3,4].map(i => (
+                        <span key={i} className={i < stars ? 'filled' : 'empty'}>★</span>
+                    ))}
+                </div>
+                <div className="star-label">{label}</div>
+            </div>
+        );
+    };
+
+    // 导出 Top 新闻为 CSV（带 BOM，Excel 直接可开）
+
+    function exportTopNewsCSV(news: NewsItem[], filename: string) {
+        const macroNews = news.filter(isMacroNews);
+        const top = getTopNews(macroNews, 15);
+        const headers = ['排名', '星级', '影响力', '标题', '新闻梗概', '情绪', '影响等级', '来源', '市场', '板块', '发布时间', '链接', '评分'];
+        const rows = top.map((n, i) => [
+            String(i + 1),
+            '★'.repeat(n._stars || 1),
+            SENTIMENT_STAR_LABELS[n.sentiment]?.[n._stars || 1] || '',
+            n.title,
+            n.content || '',
+            n.sentiment,
+            n.impact_level,
+            n.source,
+            (n.markets || []).join('/'),
+            (n.affected_sectors || []).join('/'),
+            n.publish_time || '',
+            n.url || '',
+            String(n._score || ''),
+        ]);
+        const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function copyTopNewsText(news: NewsItem[]): string {
+        const macroNews = news.filter(isMacroNews);
+        const top = getTopNews(macroNews, 15);
+        const lines = top.map((n, i) => {
+            const stars = '★'.repeat(n._stars || 1);
+            const summary = n.content ? `\n   梗概：${n.content}` : '';
+            return `${i + 1}. ${stars} ${n.title}${summary}\n   [${n.sentiment}] ${n.source} | ${n.markets.join('/')} | ${n.impact_level}影响 | ${n.publish_time || ''}`;
+        });
+        return `最新 ${top.length} 条重点宏观/行业新闻（按时间排序）\n${'='.repeat(40)}\n${lines.join('\n\n')}`;
+    }
+
+    const TopNews: React.FC<{ news: NewsItem[] }> = ({ news }) => {
+        const macroNews = news.filter(isMacroNews);
+        const top = getTopNews(macroNews, 15);
+        const [copied, setCopied] = useState(false);
+        if (top.length === 0) return null;
+        const rankClass = (i: number) => i === 0 ? 'r1' : i === 1 ? 'r2' : i === 2 ? 'r3' : i < 5 ? 'r4' : 'r5';
+
+        const handleExportCSV = () => {
+            const d = new Date();
+            const fname = `top15_macro_news_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.csv`;
+            exportTopNewsCSV(news, fname);
+        };
+
+        const handleCopy = async () => {
+            const text = copyTopNewsText(news);
+            try {
+                await navigator.clipboard.writeText(text);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } catch {
+                // 降级方案
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            }
+        };
+
+        return (
+            <div className="section">
+                <div className="section-title export-header">
+                    <span><span className="icon">🔥</span>最新 {top.length} 条重点宏观/行业新闻</span>
+                    <div className="export-btns">
+                        <button className="export-btn csv" onClick={handleExportCSV} title="导出为 CSV/Excel 文件">📥 导出CSV</button>
+                        <button className="export-btn copy" onClick={handleCopy} title="复制到剪贴板">{copied ? '✅ 已复制' : '📋 复制'}</button>
+                    </div>
+                </div>
+                <div className="top-news-list">
+                    {top.map((n, i) => (
+                        <div key={i} className={`top-news-item sent-${n.sentiment}`}>
+                            <div className={`rank-badge ${rankClass(i)}`}>{i + 1}</div>
+                            <div className="tn-body">
+                                <div className="tn-title">{n.title}</div>
+                                <div className="tn-meta">
+                                    <span className={`sent-badge ${n.sentiment}`}>
+                                        {n.sentiment === '利好' ? '🔴 利多' : n.sentiment === '利空' ? '🟢 利空' : '⚪ 中性'}
+                                    </span>
+                                    <span className="tag tag-src">{n.source}</span>
+                                    {n.markets.map((m, mi) => <span key={mi} className="tag tag-market">{m}</span>)}
+                                    {n.affected_sectors.length > 0 && <span className="tag tag-sector">{n.affected_sectors.join('/')}</span>}
+                                    {n.publish_time && <span className="tag tag-src">{n.publish_time}</span>}
+                                    {n.url && <a href={n.url} target="_blank" rel="noopener" style={{ color: 'var(--accent-light)', fontSize: '11px', textDecoration: 'none' }}>原文 →</a>}
+                                </div>
+                                {n.llm_analysis && (
+                                    <div className="llm-card">
+                                        <span className="ll">AI:</span>{n.llm_analysis}
+                                        {n.llm_prediction && <span style={{ color: '#e879f9', marginLeft: '8px' }}>📊 {n.llm_prediction}</span>}
+                                    </div>
+                                )}
+                            </div>
+                            <StarRating stars={n._stars || 1} sentiment={n.sentiment} />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+    // ============================================================
+    // 组件: MasterAgents
+    // ============================================================
+    const MasterAgents: React.FC<{ masters: MasterResult[] }> = ({ masters }) => {
+        const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+        const [instExpanded, setInstExpanded] = useState<Record<string, boolean>>({});
+        if (!masters || masters.length === 0) return null;
+
+        const toggle = (i: number) => setExpanded(prev => ({ ...prev, [i]: !prev[i] }));
+        const toggleInst = (key: string) => setInstExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+
+        const riskClass = (risk?: string) => {
+            if (!risk) return '';
+            if (risk.includes('高')) return 'risk-high';
+            if (risk.includes('中')) return 'risk-mid';
+            return 'risk-low';
+        };
+
+        return (
+            <div className="section">
+                <div className="section-title"><span className="icon">🤖</span>炒股大师深度研判：六位大师解读今日市场</div>
+                <div className="masters-grid">
+                    {masters.map((m, i) => (
+                        <div key={i} className="master-card" style={{ borderTopColor: m.color }}>
+                            <span className="mc-method">{m.analysis_method}</span>
+                            <div className="mc-header">
+                                <div className="mc-avatar" style={{ background: m.color + '22' }}>{m.master_emoji}</div>
+                                <div className="mc-info">
+                                    <div className="mc-name">{m.master_name}</div>
+                                    <div className="mc-school">{m.school} · {m.tagline}</div>
+                                </div>
+                                <span className={`mc-sent ${m.sentiment}`}>{m.sentiment}</span>
+                            </div>
+
+                            {/* 市场阶段 / 风险等级 / 仓位建议 徽章 */}
+                            <div className="mc-badges">
+                                {m.market_phase && <span className="mc-badge phase">📊 {m.market_phase}</span>}
+                                {m.risk_level && <span className={`mc-badge ${riskClass(m.risk_level)}`}>⚠️ 风险{m.risk_level}</span>}
+                                {m.position_advice && <span className="mc-badge pos">💰 {m.position_advice}</span>}
+                            </div>
+
+                            <div className="mc-view">{m.market_view}</div>
+                            <div className="mc-action"><span className="al">⚡ 建议:</span>{m.action}</div>
+                            {(m.opportunity_sectors.length > 0 || m.risk_sectors.length > 0) && (
+                                <div className="mc-sectors">
+                                    {m.opportunity_sectors.map((s, si) => <span key={si} className="mc-sector opp">🔴 {s}</span>)}
+                                    {m.risk_sectors.map((s, si) => <span key={si} className="mc-sector risk">🟢 {s}</span>)}
+                                </div>
+                            )}
+
+                            {/* 择时提示 - 什么时候要注意 */}
+                            {m.timing_signals && m.timing_signals.length > 0 && (
+                                <div className="mc-detail-section">
+                                    <div className="mc-detail-label">⏰ 择时提示（什么时候要注意）</div>
+                                    {m.timing_signals.map((t, ti) => (
+                                        <div key={ti} className="mc-timing-item">
+                                            <span className={`mc-timing-type ${t.type.includes('买入') ? '买入时机' : t.type.includes('止盈') ? '止盈' : t.type.includes('观望') ? '观望条件' : '潜在'}`}>{t.type}</span>
+                                            <span className="mc-timing-signal">{t.signal}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* 关注要点 */}
+                            {m.watch_points && m.watch_points.length > 0 && (
+                                <div className="mc-detail-section">
+                                    <div className="mc-detail-label">👁️ 持续关注要点</div>
+                                    {m.watch_points.map((w, wi) => (
+                                        <div key={wi} className="mc-watch-item">{w}</div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* 具体品种分析 - 黄金/白银/恒指期货/原油/A股/美股 */}
+                            {m.instrument_analysis && m.instrument_analysis.length > 0 && (
+                                <div className="mc-inst-section">
+                                    <div className="mc-inst-label">📊 具体品种研判（{m.instrument_analysis.length}个品种）</div>
+                                    <div className="mc-inst-grid">
+                                        {m.instrument_analysis.map((inst, ii) => {
+                                            const instKey = `${i}-${ii}`;
+                                            return (
+                                                <div key={ii} className={`mc-inst-card ${inst.signal}`}>
+                                                    <div className="mc-inst-header">
+                                                        <span className="mc-inst-name">{inst.icon} {inst.instrument}</span>
+                                                        <span className={`mc-inst-signal ${inst.signal}`}>{inst.signal}</span>
+                                                    </div>
+                                                    <div className="mc-inst-count">
+                                                        {inst.news_count}条新闻 · 🔴{inst.positive} 🟢{inst.negative} ⚪{inst.neutral}
+                                                    </div>
+                                                    <div className="mc-inst-strategy">📋 {inst.strategy}</div>
+                                                    <button className="mc-inst-toggle" onClick={() => toggleInst(instKey)}>
+                                                        {instExpanded[instKey] ? '收起详情 ▲' : '大师观点 + 新闻 ▼'}
+                                                    </button>
+                                                    <div className={`mc-inst-detail ${instExpanded[instKey] ? 'show' : ''}`}>
+                                                        <div className="mc-inst-view">💬 {inst.master_view}</div>
+                                                        {inst.related_news && inst.related_news.length > 0 && (
+                                                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
+                                                                📰 {inst.related_news.join('；')}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="mc-insight">💡 {m.key_insight}</div>
+
+                            {/* 详细板块分析 - 可展开 */}
+                            {m.detailed_analysis && m.detailed_analysis.length > 0 && (
+                                <>
+                                    <button className="mc-detail-toggle" onClick={() => toggle(i)}>
+                                        {expanded[i] ? '收起详细板块分析 ▲' : `展开详细板块分析（${m.detailed_analysis.length}个板块） ▼`}
+                                    </button>
+                                    <div className={`mc-detail ${expanded[i] ? 'show' : ''}`}>
+                                        <div className="mc-detail-label">🔍 具体板块分析</div>
+                                        {m.detailed_analysis.map((d, di) => (
+                                            <div key={di} className="mc-sector-item">
+                                                <div className="si-header">
+                                                    <span className="si-name">{d.sector}</span>
+                                                    <span className={`si-signal ${d.signal}`}>{d.signal}</span>
+                                                </div>
+                                                <div className="si-reason">{d.reasoning}</div>
+                                                <div className="si-view">💬 {d.master_view}</div>
+                                                {d.related_news && d.related_news.length > 0 && (
+                                                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                                                        📰 {d.related_news.join('；')}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                        {m.philosophy && (
+                                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', fontStyle: 'italic', lineHeight: 1.6 }}>
+                                                📖 投资理念：{m.philosophy}
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+    // ============================================================
+    // 组件: TrendCharts (ECharts)
+    // ============================================================
+    const TrendCharts: React.FC<{ trends: TrendItem[] }> = ({ trends }) => {
+        const sentimentRef = useRef<HTMLDivElement>(null);
+        const volumeRef = useRef<HTMLDivElement>(null);
+        const marketRef = useRef<HTMLDivElement>(null);
+
+        useEffect(() => {
+            if (!trends || trends.length === 0) return;
+
+            const dates = trends.map(t => t.date);
+
+            // 情绪走势图
+            if (sentimentRef.current) {
+                const chart = echarts.init(sentimentRef.current, 'dark');
+                chart.setOption({
+                    backgroundColor: 'transparent',
+                    tooltip: { trigger: 'axis' },
+                    legend: { data: ['利好', '利空', '中性'], bottom: 0, textStyle: { color: '#a0a0b8' } },
+                    grid: { left: '3%', right: '4%', bottom: '15%', top: '5%', containLabel: true },
+                    xAxis: { type: 'category', data: dates, axisLabel: { color: '#71718a', fontSize: 10 } },
+                    yAxis: { type: 'value', axisLabel: { color: '#71718a' }, splitLine: { lineStyle: { color: '#2a2a4a' } } },
+                    series: [
+                        { name: '利好', type: 'line', smooth: true, data: trends.map(t => t.positive),
+                          itemStyle: { color: '#ff6b6b' }, areaStyle: { color: 'rgba(255,107,107,0.1)' } },
+                        { name: '利空', type: 'line', smooth: true, data: trends.map(t => t.negative),
+                          itemStyle: { color: '#51cf66' }, areaStyle: { color: 'rgba(81,207,102,0.1)' } },
+                        { name: '中性', type: 'line', smooth: true, data: trends.map(t => t.neutral),
+                          itemStyle: { color: '#718096' }, areaStyle: { color: 'rgba(113,128,150,0.1)' } },
+                    ],
+                });
+                const resize = () => chart.resize();
+                window.addEventListener('resize', resize);
+                return () => { window.removeEventListener('resize', resize); chart.dispose(); };
+            }
+        }, [trends]);
+
+        useEffect(() => {
+            if (!trends || trends.length === 0) return;
+            const dates = trends.map(t => t.date);
+
+            // 新闻总量图
+            if (volumeRef.current) {
+                const chart = echarts.init(volumeRef.current, 'dark');
+                chart.setOption({
+                    backgroundColor: 'transparent',
+                    tooltip: { trigger: 'axis' },
+                    grid: { left: '3%', right: '4%', bottom: '10%', top: '5%', containLabel: true },
+                    xAxis: { type: 'category', data: dates, axisLabel: { color: '#71718a', fontSize: 10 } },
+                    yAxis: { type: 'value', axisLabel: { color: '#71718a' }, splitLine: { lineStyle: { color: '#2a2a4a' } } },
+                    series: [{
+                        type: 'bar', data: trends.map(t => t.total),
+                        itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: '#6c5ce7' }, { offset: 1, color: '#4834d4' }
+                        ]), borderRadius: [4, 4, 0, 0] },
+                    }],
+                });
+                const resize = () => chart.resize();
+                window.addEventListener('resize', resize);
+                return () => { window.removeEventListener('resize', resize); chart.dispose(); };
+            }
+        }, [trends]);
+
+        useEffect(() => {
+            if (!trends || trends.length < 2) return;
+            const dates = trends.map(t => t.date);
+
+            // 市场分布趋势
+            const allMarkets = new Set<string>();
+            trends.forEach(t => Object.keys(t.markets).forEach(m => allMarkets.add(m)));
+            if (allMarkets.size === 0) return;
+
+            const palette = ['#6c5ce7', '#ff6b6b', '#51cf66', '#ffd43b', '#74b9ff', '#e879f9', '#a29bfe'];
+            const series = Array.from(allMarkets).map((market, i) => ({
+                name: market, type: 'line', smooth: true,
+                data: trends.map(t => t.markets[market] || 0),
+                itemStyle: { color: palette[i % palette.length] },
+            }));
+
+            if (marketRef.current) {
+                const chart = echarts.init(marketRef.current, 'dark');
+                chart.setOption({
+                    backgroundColor: 'transparent',
+                    tooltip: { trigger: 'axis' },
+                    legend: { data: Array.from(allMarkets), bottom: 0, textStyle: { color: '#a0a0b8', fontSize: 10 } },
+                    grid: { left: '3%', right: '4%', bottom: '15%', top: '5%', containLabel: true },
+                    xAxis: { type: 'category', data: dates, axisLabel: { color: '#71718a', fontSize: 10 } },
+                    yAxis: { type: 'value', axisLabel: { color: '#71718a' }, splitLine: { lineStyle: { color: '#2a2a4a' } } },
+                    series,
+                });
+                const resize = () => chart.resize();
+                window.addEventListener('resize', resize);
+                return () => { window.removeEventListener('resize', resize); chart.dispose(); };
+            }
+        }, [trends]);
+
+        if (!trends || trends.length === 0) return null;
+
+        return (
+            <div className="section">
+                <div className="section-title"><span className="icon">📈</span>历史情绪趋势（近30天）</div>
+                <div className="charts-grid">
+                    <div className="chart-card">
+                        <div className="chart-title">每日新闻情绪走势</div>
+                        <div ref={sentimentRef} className="chart-box"></div>
+                    </div>
+                    <div className="chart-card">
+                        <div className="chart-title">每日新闻总量</div>
+                        <div ref={volumeRef} className="chart-box"></div>
+                    </div>
+                    {trends.length >= 2 && (
+                        <div className="chart-card full">
+                            <div className="chart-title">各市场新闻量趋势</div>
+                            <div ref={marketRef} className="chart-box" style={{ height: '260px' }}></div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    // ============================================================
+    // 组件: NewsTabs
+    // ============================================================
+    const NewsTabs: React.FC<{ news: NewsItem[] }> = ({ news }) => {
+        const [activeTab, setActiveTab] = useState('全部');
+
+        // 过滤：只保留宏观/行业新闻，排除纯行情播报
+        const macroNews = news.filter(isMacroNews).sort((a, b) => {
+            // 按发布时间降序（最新的在前）
+            return (b.publish_time || '').localeCompare(a.publish_time || '');
+        });
+        const filteredCount = news.length - macroNews.length;
+
+        // 按市场分组（基于过滤并排序后的新闻）
+        const marketGroups: Record<string, NewsItem[]> = {};
+        macroNews.forEach(n => {
+            const markets = n.markets.length > 0 ? n.markets : ['其他'];
+            markets.forEach(m => {
+                if (!marketGroups[m]) marketGroups[m] = [];
+                marketGroups[m].push(n);
+            });
+        });
+
+        const tabs = ['全部', ...Object.keys(marketGroups).sort((a, b) => marketGroups[b].length - marketGroups[a].length)];
+        const filtered = activeTab === '全部' ? macroNews : (marketGroups[activeTab] || []);
+
+        return (
+            <div className="section">
+                <div className="section-title export-header">
+                    <span><span className="icon">📰</span>新闻列表</span>
+                    {filteredCount > 0 && (
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 400 }}>
+                            已过滤 {filteredCount} 条行情播报，显示 {macroNews.length} 条宏观/行业新闻
+                        </span>
+                    )}
+                </div>
+                <div className="tabs">
+                    {tabs.map(tab => (
+                        <div key={tab} className={`tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
+                            {tab}
+                            <span className="tab-count">{tab === '全部' ? macroNews.length : (marketGroups[tab] || []).length}</span>
+                        </div>
+                    ))}
+                </div>
+                <div className="news-list">
+                    {filtered.length === 0 && (
+                        <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            该分类下暂无宏观/行业新闻
+                        </div>
+                    )}
+                    {filtered.map((n, i) => (
+                        <div key={i} className={`news-item sent-${n.sentiment} ${n.impact_level === '高' ? 'imp-high' : ''}`}>
+                            <div className="ni-title">
+                                {n.impact_level === '高' && <span style={{ color: 'var(--positive)' }}>🔥 </span>}
+                                {n.title}
+                            </div>
+                            <div className="ni-content">{n.content}</div>
+                            <div className="ni-meta">
+                                <span className="tag tag-src">{n.source}</span>
+                                <span className={`tag tag-sent-${n.sentiment === '利好' ? 'pos' : n.sentiment === '利空' ? 'neg' : 'neu'}`}>{n.sentiment}</span>
+                                <span className="tag tag-src">{n.impact_level}影响</span>
+                                {n.markets.map((m, mi) => <span key={mi} className="tag tag-market">{m}</span>)}
+                                {n.affected_sectors.map((s, si) => <span key={si} className="tag tag-sector">{s}</span>)}
+                                {n.publish_time && <span className="tag tag-src">{n.publish_time}</span>}
+                                {n.url && <a href={n.url} target="_blank" rel="noopener" style={{ color: 'var(--accent-light)', fontSize: '11px', textDecoration: 'none' }}>原文 →</a>}
+                            </div>
+                            {n.llm_analysis && (
+                                <div className="llm-card">
+                                    <span className="ll">AI分析:</span>{n.llm_analysis}
+                                    {n.llm_prediction && <div style={{ marginTop: '4px' }}><span className="ll">走势:</span><span style={{ color: '#e879f9' }}>{n.llm_prediction}</span></div>}
+                                    {n.llm_suggestion && <div style={{ marginTop: '4px' }}><span className="ll">建议:</span><span style={{ color: '#74b9ff' }}>{n.llm_suggestion}</span></div>}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+    // ============================================================
+    // 组件: MarketIndices (大盘指数)
+    // ============================================================
+    const MarketIndices: React.FC<{ indices: MarketIndexData | null; onRefresh: () => void; loading: boolean }> = ({ indices, onRefresh, loading }) => {
+        if (!indices || !indices.indices || indices.indices.length === 0) return null;
+
+        // 按分组归类
+        const groups: Record<string, MarketIndex[]> = {};
+        indices.indices.forEach(idx => {
+            const g = idx.group || '其他';
+            if (!groups[g]) groups[g] = [];
+            groups[g].push(idx);
+        });
+
+        const groupOrder = ['A股大盘', '美股大盘', '韩股'];
+        const groupIcons: Record<string, string> = { 'A股大盘': '🇨🇳', '美股大盘': '🇺🇸', '韩股': '🇰🇷' };
+        const summary = indices.market_summary;
+
+        const trendClass = (trend?: string) => {
+            if (!trend) return '';
+            if (trend === '偏强') return '偏强';
+            if (trend === '偏弱') return '偏弱';
+            return '震荡';
+        };
+
+        return (
+            <div className="section market-indices-section">
+                <div className="section-title export-header">
+                    <span><span className="icon">🌍</span>大盘指数实时行情</span>
+                    <button className="mi-refresh-btn" onClick={onRefresh} disabled={loading}>
+                        {loading ? '刷新中...' : '🔄 刷新行情'}
+                    </button>
+                </div>
+
+                {/* 大盘综合研判 */}
+                {summary && (
+                    <div className="mi-summary">
+                        <strong>📊 大盘综合研判：</strong>
+                        A股<span className={`trend-tag ${trendClass(summary.a_share_trend)}`}>{summary.a_share_trend}</span>
+                        ｜美股<span className={`trend-tag ${trendClass(summary.us_trend)}`}>{summary.us_trend}</span>
+                        ｜韩股<span className={`trend-tag ${trendClass(summary.kr_trend)}`}>{summary.kr_trend}</span>
+                        <div style={{ marginTop: '6px', fontSize: '12px' }}>{summary.summary}</div>
+                        <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-muted)' }}>数据更新：{indices.fetch_time} · 来源：{indices.source}</div>
+                    </div>
+                )}
+
+                {/* 按分组展示指数 */}
+                <div className="mi-groups">
+                    {groupOrder.map(group => {
+                        const items = groups[group];
+                        if (!items || items.length === 0) return null;
+                        return (
+                            <div key={group} className="mi-group">
+                                <div className="mi-group-title">{groupIcons[group] || '📊'} {group}</div>
+                                <div className="mi-cards">
+                                    {items.map((idx, i) => {
+                                        const isUp = idx.change_pct > 0;
+                                        const isDown = idx.change_pct < 0;
+                                        const dirClass = isUp ? 'up' : isDown ? 'down' : 'flat';
+                                        const chgClass = isUp ? 'up' : isDown ? 'down' : 'flat';
+                                        const arrow = isUp ? '▲' : isDown ? '▼' : '—';
+                                        return (
+                                            <div key={i} className={`mi-card ${dirClass}`}>
+                                                <span className="mi-source">{idx.data_source}</span>
+                                                <div className="mi-name">{idx.name}</div>
+                                                <div className="mi-price" style={{ color: isUp ? 'var(--positive)' : isDown ? 'var(--negative)' : 'var(--neutral)' }}>
+                                                    {idx.latest.toFixed(2)}
+                                                </div>
+                                                <div className={`mi-change ${chgClass}`}>
+                                                    {arrow} {idx.change.toFixed(2)} ({idx.change_pct >= 0 ? '+' : ''}{idx.change_pct.toFixed(2)}%)
+                                                </div>
+                                                {idx.high > 0 && idx.low > 0 && (
+                                                    <div className="mi-range">高 {idx.high.toFixed(2)} / 低 {idx.low.toFixed(2)} / 开 {idx.open.toFixed(2)}</div>
+                                                )}
+                                                <div className="mi-range" style={{ marginTop: '2px' }}>{idx.desc}</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
+    // ============================================================
+    // 主组件 App
+    // ============================================================
+    const App: React.FC = () => {
+        const [data, setData] = useState<NewsData | null>(null);
+        const [trends, setTrends] = useState<TrendItem[]>([]);
+        const [marketIndices, setMarketIndices] = useState<MarketIndexData | null>(null);
+        const [indicesLoading, setIndicesLoading] = useState(false);
+        const [loading, setLoading] = useState(true);
+        const [error, setError] = useState('');
+        const [refreshing, setRefreshing] = useState(false);
+
+        const loadData = useCallback(async () => {
+            try {
+                const newsData = await fetchAPI<NewsData>('/api/news');
+                setData(newsData);
+                setError('');
+            } catch (e: any) {
+                setError(e.message || '加载失败');
+            } finally {
+                setLoading(false);
+            }
+        }, []);
+
+        const loadTrends = useCallback(async () => {
+            try {
+                const resp = await fetchAPI<{ trends: TrendItem[] }>('/api/trends');
+                setTrends(resp.trends || []);
+            } catch { /* trends 可能为空 */ }
+        }, []);
+
+        const loadMarketIndices = useCallback(async () => {
+            setIndicesLoading(true);
+            try {
+                const resp = await fetchAPI<MarketIndexData>('/api/market-indices');
+                setMarketIndices(resp);
+            } catch { /* 大盘指数获取失败不阻断主流程 */ }
+            finally { setIndicesLoading(false); }
+        }, []);
+
+        useEffect(() => {
+            loadData();
+            loadTrends();
+            loadMarketIndices();
+        }, []);
+
+        const handleRefresh = async () => {
+            setRefreshing(true);
+            try {
+                const resp = await fetch('/api/refresh', { method: 'POST' });
+                const result = await resp.json();
+                if (result.status === 'ok') {
+                    await loadData();
+                    await loadTrends();
+                } else {
+                    alert('刷新失败: ' + (result.message || '未知错误'));
+                }
+            } catch (e: any) {
+                alert('请求失败: ' + e.message);
+            } finally {
+                setRefreshing(false);
+            }
+        };
+
+        if (loading) {
+            return (
+                <div className="loading-screen">
+                    <div className="spinner"></div>
+                    <div className="loading-text">正在加载新闻数据...</div>
+                </div>
+            );
+        }
+
+        if (error || !data) {
+            return (
+                <div className="no-data">
+                    <p>暂无数据，请先运行采集和分析模块</p>
+                    <p className="cmd">python crawlers/collector.py && python analyzer/analyzer.py</p>
+                </div>
+            );
+        }
+
+        const news = data.news || [];
+        const stats = getStats(news);
+
+        return (
+            <>
+                <Header time={data.analyze_time} onRefresh={handleRefresh} refreshing={refreshing} />
+                <div className="container" style={{ paddingTop: '24px', paddingBottom: '40px' }}>
+                    <DailySummary summary={data.daily_summary} />
+                    <StatsGrid stats={stats} />
+                    <SectorTags sectors={stats.sectors} />
+                    <MarketIndices indices={marketIndices} onRefresh={loadMarketIndices} loading={indicesLoading} />
+                    <TopNews news={news} />
+                    <MasterAgents masters={data.master_analysis || []} />
+                    <TrendCharts trends={trends} />
+                    <NewsTabs news={news} />
+                </div>
+            </>
+        );
+    };
+
+    // 渲染
+    const root = ReactDOM.createRoot(document.getElementById('root')!);
+    root.render(<App />);
+    </script>
+
+    <!-- 引导脚本：用 Babel 将 TS/JSX 源码转译为浏览器可执行 JS 并运行 -->
+    <script>
+    (function () {
+      var el = document.getElementById('app-source');
+      var src = el.textContent;
+      try {
+        var out = Babel.transform(src, {
+          presets: ['typescript', 'react'],
+          filename: 'dashboard.tsx'
+        });
+        // 间接 eval，在全局作用域执行转译后的代码
+        (0, eval)(out.code);
+      } catch (err) {
+        document.getElementById('root').innerHTML =
+          '<pre style="color:#ff6b6b;padding:20px;white-space:pre-wrap;font-size:13px;">' +
+          '应用加载失败：' + (err && err.message ? err.message : err) + '</pre>';
+        console.error('[dashboard] 加载失败:', err);
+      }
+    })();
+    </script>
+</body>
+</html>
