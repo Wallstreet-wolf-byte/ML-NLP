@@ -4,15 +4,20 @@ from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent
-OUTPUT_DIR = BASE_DIR / "crawler_data"
-DEFAULT_SOURCE = "all"
-OUTPUT_PREFIX = "finance_news"
-SOURCE_CONCURRENT_WORKERS = 5
+NEWS_OUTPUT_DIR = BASE_DIR / "crawler_data" / "news"
+NEWS_OUTPUT_PREFIX = "finance_news"
+CNINFO_OUTPUT_DIR = BASE_DIR / "crawler_data" / "cninfo"
+CNINFO_OUTPUT_PREFIX = "cninfo"
+
+ENABLE_FLASH_NEWS = True
+ENABLE_CNINFO = False
+CNINFO_DATASETS = ["announcements", "stock_basic", "industry"]
+
 DEDUP_SIMILARITY_THRESHOLD = 0.9
 DEDUP_TIME_WINDOW_MINUTES = 120
 
-START_DATE = "2026-08-04 00:00:00"
-END_DATE = "2026-08-04 09:59:59"
+START_DATE = "2026-08-07 00:00:00"
+END_DATE = "2026-08-07 09:59:59"
 
 REQUEST_TIMEOUT = 15
 FX678_PAGE_LIMIT = 40
@@ -33,3 +38,9 @@ JIN10_PAGE_LIMIT = 80
 WALLSTREETCN_LIVE_URL = "https://api-one-wscn.awtmt.com/apiv1/content/lives"
 WALLSTREETCN_PAGE_LIMIT = 40
 WALLSTREETCN_PAGE_SIZE = 20
+
+# Backward-compatible aliases for older code paths.
+OUTPUT_DIR = NEWS_OUTPUT_DIR
+OUTPUT_PREFIX = NEWS_OUTPUT_PREFIX
+DEFAULT_SOURCE = "all"
+SOURCE_CONCURRENT_WORKERS = 5
