@@ -1,0 +1,389 @@
+# ============================================================
+# 财经新闻爬虫 - YAML 配置文件
+# 可通过环境变量覆盖: NEWS_CRAWLER_<SECTION>_<KEY>
+# 例如: NEWS_CRAWLER_REQUEST_TIMEOUT=30 覆盖 request.timeout
+# ============================================================
+
+# --- 输出配置 ---
+output:
+  news_dir: crawler_data/news
+  news_prefix: finance_news
+  cninfo_dir: crawler_data/cninfo
+  cninfo_prefix: cninfo
+
+# --- 数据源开关 ---
+sources:
+  enable_flash_news: true
+  enable_cninfo: false
+  cninfo_datasets:
+    - announcements
+    - stock_basic
+    - industry
+
+# --- 去重配置 ---
+dedup:
+  similarity_threshold: 0.9
+  time_window_minutes: 120
+
+# --- 请求配置 ---
+request:
+  timeout: 15
+  concurrent_workers: 6
+
+# --- 汇通财经 (FX678) ---
+fx678:
+  page_limit: 40
+
+# --- 财联社 (CLS) ---
+cls:
+  telegraph_url: https://www.cls.cn/v1/roll/get_roll_list
+  page_limit: 40
+  page_size: 50
+
+# --- 证券时报-人民财讯 (STCN) ---
+stcn:
+  kx_url: https://www.stcn.com/article/list.html?type=kx
+  page_limit: 40
+
+# --- 金十数据 (Jin10) ---
+jin10:
+  web_flash_url: https://www.jin10.com/news/
+  web_flash_api_url: https://flash-api.jin10.com/get_flash_list
+  flash_limit: 1000
+  page_limit: 80
+
+# --- 华尔街见闻 (WallStreetCN) ---
+wallstreetcn:
+  live_url: https://api-one-wscn.awtmt.com/apiv1/content/lives
+  page_limit: 40
+  page_size: 20
+
+# --- 默认运行参数 ---
+default:
+  start_date: "2026-08-08 00:00:00"
+  end_date: "2026-08-10 09:59:59"
+  source: all
+  source_concurrent_workers: 5
+
+# --- 增量爬取与状态管理 ---
+incremental:
+  enabled: false
+  state_db: crawler_data/crawl_state.db
+  # 每次增量运行后保留最近 N 天的已抓取 ID 用于去重
+  item_retention_days: 30
+
+# ============================================================
+# API Keys 统一管理
+# 填入你的各平台 API Key/Token 后即可启用对应数据源
+# 也可通过环境变量覆盖，例如: NEWS_CRAWLER_API_KEYS_TUSHARE_TOKEN=xxx
+# ============================================================
+api_keys:
+  tushare_token: ""          # TuShare Pro Token (https://tushare.pro)
+  tdx_api_key: ""            # 通达信 API Key
+  ifind_api_key: ""          # 同花顺 iFinD API Key
+  finnhub_api_key: ""        # Finnhub API Key (https://finnhub.io)
+  alphavantage_api_key: ""   # Alpha Vantage API Key
+  llm_api_key: ""            # DeepSeek/OpenAI 兼容 API Key
+
+# ============================================================
+# 顶层 Pipeline 开关
+# 控制各数据维度是否启用
+# ============================================================
+pipelines:
+  flash_news: true           # 7x24 快讯（现有）
+  cninfo: false              # 巨潮资讯公告
+  market_data: true          # 实时行情
+  fund_flow: true            # 资金流向
+  macro_calendar: true       # 宏观经济日历
+  technical: true            # 技术指标计算
+
+# ============================================================
+# 分类筛选默认值
+# ============================================================
+filter:
+  default_market: all        # all / A股 / 港股 / 美股 / 全球
+  default_asset_class: all   # all / 股票 / 期货 / 现货 / 外汇 / 债券 / 指数
+  default_importance: all    # all / 高 / 中 / 低
+
+# ============================================================
+# 行情数据采集配置 (market_data pipeline)
+# 数据源优先级: eastmoney > sina > tdx
+# ============================================================
+market_data:
+  enabled: true
+  sources:
+    - eastmoney
+    - sina
+  fetch_interval_seconds: 60
+
+  categories:
+    # --- A股指数 (已有) ---
+    a_share:
+      label: "A股指数"
+      enabled: true
+      market: "A股"
+      asset_class: "指数"
+      items:
+        - symbol: "000016"
+          secid_eastmoney: "1.000016"
+          name: "上证50"
+        - symbol: "000300"
+          secid_eastmoney: "1.000300"
+          name: "沪深300"
+        - symbol: "000905"
+          secid_eastmoney: "1.000905"
+          name: "中证500"
+        - symbol: "000852"
+          secid_eastmoney: "1.000852"
+          name: "中证1000"
+
+    # --- 港股市场 ---
+    hk_market:
+      label: "港股市场"
+      enabled: true
+      market: "港股"
+      asset_class: "指数"
+      items:
+        - symbol: "HSI"
+          secid_eastmoney: "100.HSI"
+          secid_sina: "hHSI"
+          name: "恒生指数"
+        - symbol: "HSTECH"
+          secid_eastmoney: "100.HSTECH"
+          secid_sina: "hHSTECH"
+          name: "恒生科技指数"
+        - symbol: "HSCEI"
+          secid_eastmoney: "100.HSCEI"
+          secid_sina: "hHSCEI"
+          name: "国企指数"
+
+    # --- 美股指数 (已有) ---
+    us_market:
+      label: "美股指数"
+      enabled: true
+      market: "美股"
+      asset_class: "指数"
+      items:
+        - symbol: "DJIA"
+          secid_eastmoney: "100.DJIA"
+          name: "道琼斯"
+        - symbol: "NDX"
+          secid_eastmoney: "100.NDX"
+          name: "纳斯达克"
+        - symbol: "SPX"
+          secid_eastmoney: "100.SPX"
+          name: "标普500"
+
+    # --- 贵金属 ---
+    precious_metals:
+      label: "贵金属"
+      enabled: true
+      market: "全球"
+      asset_class: "期货"
+      items:
+        - symbol: "GC"
+          secid_eastmoney: "101.GC00Y"
+          name: "COMEX黄金期货"
+        - symbol: "SI"
+          secid_eastmoney: "101.SI00Y"
+          name: "COMEX白银期货"
+        - symbol: "XAUUSD"
+          name: "伦敦金现货"
+        - symbol: "XAGUSD"
+          name: "伦敦银现货"
+
+    # --- 大宗商品 ---
+    commodities:
+      label: "大宗商品"
+      enabled: true
+      market: "全球"
+      asset_class: "期货"
+      items:
+        - symbol: "HG"
+          secid_eastmoney: "101.HG00Y"
+          name: "COMEX铜期货"
+        - symbol: "CL"
+          name: "WTI原油期货"
+        - symbol: "ZS"
+          name: "CBOT大豆期货"
+
+    # --- 外汇债市 ---
+    fx_bond:
+      label: "外汇债市"
+      enabled: true
+      market: "全球"
+      asset_class: "外汇"
+      items:
+        - symbol: "DXY"
+          secid_eastmoney: "100.DINIW"
+          secid_sina: "b_DINIW"
+          name: "美元指数"
+        - symbol: "USDCNH"
+          secid_sina: "hUSDCNH"
+          name: "离岸人民币"
+        - symbol: "US10Y"
+          name: "美国10年期国债收益率"
+        - symbol: "US2Y"
+          name: "美国2年期国债收益率"
+
+    # --- 波动率 ---
+    volatility:
+      label: "波动率指数"
+      enabled: true
+      market: "全球"
+      asset_class: "指数"
+      items:
+        - symbol: "VIX"
+          secid_eastmoney: "100.VIX"
+          secid_sina: "b_VIX"
+          name: "VIX恐慌指数"
+
+    # --- 加密货币 (默认关闭) ---
+    crypto:
+      label: "加密货币"
+      enabled: false
+      market: "全球"
+      asset_class: "加密货币"
+      items:
+        - symbol: "BTCUSD"
+          name: "比特币"
+        - symbol: "ETHUSD"
+          name: "以太坊"
+
+    # --- 亚太其他 ---
+    asia_pacific:
+      label: "亚太其他"
+      enabled: false
+      market: "亚太"
+      asset_class: "指数"
+      items:
+        - symbol: "N225"
+          secid_eastmoney: "100.N225"
+          name: "日经225"
+        - symbol: "KOSPI"
+          secid_eastmoney: "116.KOSPI"
+          secid_sina: "b_KOSPI"
+          name: "韩国KOSPI"
+        - symbol: "TWII"
+          name: "台湾加权"
+
+# ============================================================
+# 资金流向采集配置 (fund_flow pipeline)
+# ============================================================
+fund_flow:
+  enabled: true
+  fetch_interval_seconds: 300
+
+  # 北向资金 (沪/深股通)
+  northbound:
+    enabled: true
+    market: "A股"
+
+  # 南向资金 (港股通)
+  southbound:
+    enabled: true
+    market: "港股"
+
+  # ETF 持仓监控
+  etf:
+    enabled: true
+    items:
+      - symbol: "GLD"
+        name: "SPDR黄金ETF"
+        market: "全球"
+        asset_class: "贵金属"
+        secid_eastmoney: "100.GLD"
+      - symbol: "SLV"
+        name: "iShares白银ETF"
+        market: "全球"
+        asset_class: "贵金属"
+        secid_eastmoney: "100.SLV"
+
+  # 融资融券
+  margin:
+    enabled: false
+    market: "A股"
+
+# ============================================================
+# 宏观日历采集配置 (macro_calendar pipeline)
+# ============================================================
+macro_calendar:
+  enabled: true
+  # 只关注中高重要性事件
+  importance_filter:
+    - "高"
+    - "中"
+  # 关注的国家/地区
+  countries:
+    - "美国"
+    - "中国"
+    - "欧元区"
+    - "日本"
+
+# ============================================================
+# 技术指标计算配置 (technical pipeline)
+# ============================================================
+technical:
+  enabled: true
+  kline_periods:
+    - "daily"
+    - "60min"
+  indicators:
+    ma:
+      enabled: true
+      periods: [5, 10, 20, 60, 120]
+    bollinger:
+      enabled: true
+      period: 20
+      std_dev: 2
+    rsi:
+      enabled: true
+      period: 14
+    macd:
+      enabled: true
+      fast: 12
+      slow: 26
+      signal: 9
+    atr:
+      enabled: true
+      period: 14
+  # 跨品种比值
+  ratios:
+    enabled: true
+    items:
+      - name: "金银比"
+        numerator: "GC"
+        denominator: "SI"
+      - name: "金油比"
+        numerator: "GC"
+        denominator: "CL"
+      - name: "铜金比"
+        numerator: "HG"
+        denominator: "GC"
+
+# ============================================================
+# TuShare 数据源配置 (历史日线补充)
+# token 在 api_keys.tushare_token 中配置
+# 用于技术指标的历史数据来源，覆盖金银/恒指等品种
+# ============================================================
+tushare:
+  enabled: true
+  # 品种 symbol -> TuShare (api_name, ts_code) 映射
+  symbol_map:
+    GC: ["fut_daily", "AU.SHF"]        # 沪金期货主连
+    SI: ["fut_daily", "AG.SHF"]        # 沪银期货主连
+    HG: ["fut_daily", "CU.SHF"]        # 沪铜期货主连
+    CL: ["fut_daily", "SC.INE"]        # 原油期货主连
+    HSI: ["index_global", "HSI"]       # 恒生指数
+    XAUUSD: ["sge_daily", "AU9999.SGE"] # 上海黄金现货
+    XAGUSD: ["sge_daily", "AG9999.SGE"] # 上海白银现货
+
+# ============================================================
+# 通达信 (TDX) 数据源配置 (本地 TdxQuant HTTP 服务)
+# 前置条件：本机需运行「支持 TQ 的通达信客户端」
+# 用于 A股/港股/国内期货的实时行情与 K 线
+# ============================================================
+tdx:
+  enabled: false
+  base_url: "http://127.0.0.1:17709/"
+  timeout: 10
