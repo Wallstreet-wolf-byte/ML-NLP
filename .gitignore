@@ -220,3 +220,9 @@ __marimo__/
 # Project crawler outputs
 finance_news_crawler/crawler_data/
 
+.conda/
+.vscode/
+.idea/
+
+# External research resources kept locally and not redistributed
+中文金融情感词典_姜富伟等(2020).xlsx
