@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-from clients.cninfo_client import CninfoClient
 from clients.flash_registry import crawl_all_flash_sources
 from common.dedup import deduplicate_records
 from common.utils import save_json, sort_records_by_publish_time
 from config import (
-    CNINFO_DATASETS,
-    CNINFO_OUTPUT_DIR,
-    CNINFO_OUTPUT_PREFIX,
-    ENABLE_CNINFO,
     ENABLE_FLASH_NEWS,
     END_DATE,
     NEWS_OUTPUT_DIR,
@@ -30,36 +25,12 @@ def run_flash_pipeline() -> None:
     print(f"Saved {len(records)} flash records to {output_path}")
 
 
-def run_cninfo_pipeline() -> None:
-    client = CninfoClient(datasets=CNINFO_DATASETS)
-    dataset_records = client.fetch_selected_datasets(START_DATE, END_DATE)
-
-    if not dataset_records:
-        print("No CNINFO records fetched.")
-        return
-
-    total = 0
-    for dataset, records in dataset_records.items():
-        if not records:
-            continue
-        output_path = save_json(records, CNINFO_OUTPUT_DIR, f"{CNINFO_OUTPUT_PREFIX}_{dataset}")
-        total += len(records)
-        print(f"Saved {len(records)} CNINFO records for {dataset} to {output_path}")
-
-    if total == 0:
-        print("No CNINFO records fetched.")
-
-
 def main() -> None:
-    if not ENABLE_FLASH_NEWS and not ENABLE_CNINFO:
-        print("No task enabled. Set ENABLE_FLASH_NEWS or ENABLE_CNINFO in config.py.")
+    if not ENABLE_FLASH_NEWS:
+        print("Flash news collection is disabled. Set ENABLE_FLASH_NEWS=True in config.py.")
         return
 
-    if ENABLE_FLASH_NEWS:
-        run_flash_pipeline()
-
-    if ENABLE_CNINFO:
-        run_cninfo_pipeline()
+    run_flash_pipeline()
 
 
 if __name__ == "__main__":

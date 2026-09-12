@@ -6,12 +6,8 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 NEWS_OUTPUT_DIR = BASE_DIR / "crawler_data" / "news"
 NEWS_OUTPUT_PREFIX = "finance_news"
-CNINFO_OUTPUT_DIR = BASE_DIR / "crawler_data" / "cninfo"
-CNINFO_OUTPUT_PREFIX = "cninfo"
 
 ENABLE_FLASH_NEWS = True
-ENABLE_CNINFO = False
-CNINFO_DATASETS = ["announcements", "stock_basic", "industry"]
 
 DEDUP_SIMILARITY_THRESHOLD = 0.9
 DEDUP_TIME_WINDOW_MINUTES = 120
