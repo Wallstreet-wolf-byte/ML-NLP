@@ -7,9 +7,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from bs4 import BeautifulSoup
 
+from common.logger import get_logger
 from common.models import make_news_record
 from common.utils import DEFAULT_HEADERS, clean_text
 from config import JIN10_FLASH_LIMIT, JIN10_PAGE_LIMIT, JIN10_WEB_FLASH_API_URL, JIN10_WEB_FLASH_URL
+
+logger = get_logger(__name__)
 
 
 class Jin10WebFlashClient:
@@ -33,7 +36,7 @@ class Jin10WebFlashClient:
         try:
             return self._fetch_from_web_api(start_date, end_date)
         except Exception as exc:
-            print(f"Jin10 web API failed: {exc}; trying HTML fallback.")
+            logger.warning(f"Jin10 web API failed: {exc}; trying HTML fallback.")
             return self._fetch_from_html(start_date, end_date)
 
     def _fetch_from_web_api(self, start_date: datetime, end_date: datetime) -> List[Dict[str, str]]:
@@ -48,13 +51,13 @@ class Jin10WebFlashClient:
             if max_time:
                 params["max_time"] = max_time
 
-            print(f"Fetching Jin10 market flash page {page}: {JIN10_WEB_FLASH_API_URL}")
+            logger.info(f"Fetching Jin10 market flash page {page}: {JIN10_WEB_FLASH_API_URL}")
             response = self.session.get(JIN10_WEB_FLASH_API_URL, params=params, timeout=self.timeout)
             response.raise_for_status()
             payload = response.json()
 
             if payload.get("status") != 200:
-                print(f"Jin10 market flash API returned {payload.get('status')}: {payload.get('message')}")
+                logger.warning(f"Jin10 market flash API returned {payload.get('status')}: {payload.get('message')}")
                 return records
 
             items = payload.get("data")
@@ -68,7 +71,7 @@ class Jin10WebFlashClient:
                 page_oldest = min(valid_page_times)
                 newest_seen = page_newest if newest_seen is None else max(newest_seen, page_newest)
                 oldest_seen = page_oldest if oldest_seen is None else min(oldest_seen, page_oldest)
-                print(
+                logger.info(
                     "Jin10 public web flash page window: "
                     f"{page_newest:%Y-%m-%d %H:%M:%S} -> {page_oldest:%Y-%m-%d %H:%M:%S}"
                 )
@@ -99,7 +102,7 @@ class Jin10WebFlashClient:
             max_time = next_max_time
 
         if not records and newest_seen and oldest_seen and (newest_seen < start_date or oldest_seen > end_date):
-            print(
+            logger.warning(
                 "Jin10 returned data outside configured range; "
                 f"returned window: {newest_seen:%Y-%m-%d %H:%M:%S} -> {oldest_seen:%Y-%m-%d %H:%M:%S}; "
                 f"configured range: {start_date:%Y-%m-%d %H:%M:%S} -> {end_date:%Y-%m-%d %H:%M:%S}."
@@ -107,7 +110,7 @@ class Jin10WebFlashClient:
         return records
 
     def _fetch_from_html(self, start_date: datetime, end_date: datetime) -> List[Dict[str, str]]:
-        print(f"Fetching Jin10 market flash page: {JIN10_WEB_FLASH_URL}")
+        logger.info(f"Fetching Jin10 market flash page: {JIN10_WEB_FLASH_URL}")
         response = self.session.get(JIN10_WEB_FLASH_URL, timeout=self.timeout)
         response.raise_for_status()
         html = response.content.decode("utf-8", errors="replace")

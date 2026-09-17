@@ -1,4 +1,4 @@
-"""
+﻿"""
 金融情绪词典 Word2Vec 种子词扩展脚本
 
 流程：
@@ -15,7 +15,6 @@
 """
 
 import os
-import re
 import json
 import glob
 import argparse
@@ -30,7 +29,6 @@ warnings.filterwarnings("ignore")
 BASE_DIR = Path(__file__).resolve().parent
 DICTS_DIR = BASE_DIR.parent / "dicts"
 OUTPUT_DIR = BASE_DIR / "output"
-OUTPUT_DIR.mkdir(exist_ok=True)
 
 # Word2Vec 参数
 W2V_VECTOR_SIZE = 100
@@ -136,7 +134,7 @@ def merge_seeds(manual_pos, manual_neg, jiang_pos, jiang_neg):
 def load_local_news(crawler_data_dir=None):
     """加载本地爬虫采集的快讯"""
     if crawler_data_dir is None:
-        crawler_data_dir = BASE_DIR.parent / "finance_news_crawler" / "crawler_data"
+        crawler_data_dir = BASE_DIR.parent / "crawler" / "crawler_data"
 
     texts = []
     pattern = str(Path(crawler_data_dir) / "**" / "*.json")
@@ -376,6 +374,8 @@ def main():
     print("=" * 60)
     print("  金融情绪词典 Word2Vec 扩展")
     print("=" * 60)
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # Step 1: 加载种子词
     print("\n--- Step 1: 加载种子词 ---")

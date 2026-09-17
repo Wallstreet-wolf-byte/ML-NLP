@@ -10,8 +10,11 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
+from common.logger import get_logger
 from common.models import make_news_record
 from common.utils import DEFAULT_HEADERS, clean_fx678_content, fetch_text
+
+logger = get_logger(__name__)
 
 
 class Fx678Client:
@@ -46,7 +49,7 @@ class Fx678Client:
                 break
 
             list_url = f"{self.list_base_url}{current_page}"
-            print(f"Fetching FX678 list page {current_page}: {list_url}")
+            logger.info(f"Fetching FX678 list page {current_page}: {list_url}")
             html = fetch_text(self.session, list_url, timeout=self.timeout)
             if not html:
                 break
@@ -136,9 +139,8 @@ class Fx678Client:
         return None
 
     def _extract_detail(self, task: Dict[str, str]) -> Optional[Dict[str, str]]:
-        detail_session = requests.Session()
-        detail_session.headers.update(self.headers)
-        html = fetch_text(detail_session, task["url"], timeout=self.timeout)
+        # 复用类级别 session，避免每条新闻新建连接（TCP握手开销大）
+        html = fetch_text(self.session, task["url"], timeout=self.timeout)
         if not html:
             return None
 
@@ -147,7 +149,8 @@ class Fx678Client:
         if content_tag:
             content = clean_fx678_content(content_tag.get_text(strip=True))
         else:
-            content = "No content found."
+            logger.warning(f"No content found for {task['url']}")
+            return None
 
         return make_news_record(
             news_id=task["id"],

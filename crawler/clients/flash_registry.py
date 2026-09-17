@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Callable, Dict, Iterable, List, Sequence, Tuple
 
 from clients.cls_client import ClsClient
+from common.logger import get_logger
 from clients.fx678_client import Fx678Client
 from clients.jin10_client import Jin10Client
 from clients.stcn_client import StcnClient
@@ -21,6 +22,8 @@ from config import (
     STCN_PAGE_LIMIT,
     WALLSTREETCN_PAGE_LIMIT,
 )
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -66,11 +69,11 @@ FLASH_SOURCE_SPECS: Sequence[FlashSourceSpec] = (
 def crawl_all_flash_sources(start_date: str = START_DATE, end_date: str = END_DATE) -> List[Dict[str, str]]:
     records: List[Dict[str, str]] = []
     for spec in FLASH_SOURCE_SPECS:
-        print(f"Start {spec.name.upper()} crawl...")
+        logger.info(f"Start {spec.name.upper()} crawl...")
         try:
             records.extend(spec.runner(start_date, end_date))
         except Exception as exc:
-            print(f"{spec.name.upper()} crawl failed: {exc}")
+            logger.error(f"{spec.name.upper()} crawl failed: {exc}")
     return records
 
 

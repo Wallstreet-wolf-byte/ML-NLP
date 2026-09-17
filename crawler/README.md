@@ -1,4 +1,4 @@
-# finance_news_crawler
+﻿# crawler
 
 独立财经新闻爬虫项目，当前主流程抓取 5 个财经新闻来源：汇通财经、金十数据、华尔街见闻、财联社、证券时报-人民财讯。项目会按时间区间采集多个 7x24 财经资讯源，并统一输出为结构化 JSON。
 
@@ -22,10 +22,10 @@
 
 ```powershell
 cd D:\爬虫预警程序\ML-NLP
-python -m pip install -r finance_news_crawler\requirements.txt
+python -m pip install -r crawler\requirements.txt
 ```
 
-如果你已经进入 `finance_news_crawler` 目录，也可以运行：
+如果你已经进入 `crawler` 目录，也可以运行：
 
 ```powershell
 python -m pip install -r requirements.txt
@@ -36,20 +36,20 @@ python -m pip install -r requirements.txt
 在 `ML-NLP` 目录下运行全部来源：
 
 ```powershell
-python finance_news_crawler\main.py --source all
+python crawler\main.py --source all
 ```
 
 只抓单个来源：
 
 ```powershell
-python finance_news_crawler\main.py --source fx678
-python finance_news_crawler\main.py --source jin10
-python finance_news_crawler\main.py --source wallstreetcn
-python finance_news_crawler\main.py --source cls
-python finance_news_crawler\main.py --source stcn
+python crawler\main.py --source fx678
+python crawler\main.py --source jin10
+python crawler\main.py --source wallstreetcn
+python crawler\main.py --source cls
+python crawler\main.py --source stcn
 ```
 
-如果当前终端已经在 `finance_news_crawler` 目录下，则命令写成：
+如果当前终端已经在 `crawler` 目录下，则命令写成：
 
 ```powershell
 python main.py --source all
@@ -67,7 +67,7 @@ END_DATE = "2026-08-04 09:59:59"
 也可以在运行时指定：
 
 ```powershell
-python finance_news_crawler\main.py --source all --start-date "2026-08-04 00:00:00" --end-date "2026-08-04 09:59:59"
+python crawler\main.py --source all --start-date "2026-08-04 00:00:00" --end-date "2026-08-04 09:59:59"
 ```
 
 支持的日期格式包括：
@@ -102,10 +102,10 @@ python finance_news_crawler\main.py --source all --start-date "2026-08-04 00:00:
 示例：
 
 ```powershell
-python finance_news_crawler\main.py --source fx678 --fx678-page-limit 3
-python finance_news_crawler\main.py --source jin10 --jin10-limit 100 --jin10-page-limit 10
-python finance_news_crawler\main.py --source all --parallel-sources --source-workers 5
-python finance_news_crawler\main.py --source all --output-prefix morning_news
+python crawler\main.py --source fx678 --fx678-page-limit 3
+python crawler\main.py --source jin10 --jin10-limit 100 --jin10-page-limit 10
+python crawler\main.py --source all --parallel-sources --source-workers 5
+python crawler\main.py --source all --output-prefix morning_news
 ```
 
 ## 5. 输出格式
@@ -139,7 +139,7 @@ python finance_news_crawler\main.py --source all --output-prefix morning_news
 输出文件位于：
 
 ```text
-finance_news_crawler\crawler_data\
+crawler\crawler_data\
 ```
 
 文件名示例：
@@ -175,19 +175,19 @@ DEDUP_TIME_WINDOW_MINUTES = 120
 初次排查或开发时，建议先抓单个来源：
 
 ```powershell
-python finance_news_crawler\main.py --source jin10 --start-date "2026-08-04 09:00:00" --end-date "2026-08-04 10:00:00"
+python crawler\main.py --source jin10 --start-date "2026-08-04 09:00:00" --end-date "2026-08-04 10:00:00"
 ```
 
 确认输出正常后，再抓全部来源：
 
 ```powershell
-python finance_news_crawler\main.py --source all --start-date "2026-08-04 00:00:00" --end-date "2026-08-04 09:59:59"
+python crawler\main.py --source all --start-date "2026-08-04 00:00:00" --end-date "2026-08-04 09:59:59"
 ```
 
 如果需要更快，可以开启来源并行：
 
 ```powershell
-python finance_news_crawler\main.py --source all --parallel-sources --source-workers 5
+python crawler\main.py --source all --parallel-sources --source-workers 5
 ```
 
 ## 8. 常见问题
@@ -206,7 +206,7 @@ python finance_news_crawler\main.py --source all --parallel-sources --source-wor
 不同网站的接口和页面结构不同，单个来源失败不一定代表整个项目坏了。可以先单独运行该来源，缩小问题范围：
 
 ```powershell
-python finance_news_crawler\main.py --source cls
+python crawler\main.py --source cls
 ```
 
 ### 8.3 输出里有重复新闻
@@ -226,12 +226,12 @@ DEDUP_TIME_WINDOW_MINUTES = 120
 
 ## 9. 项目定位
 
-`finance_news_crawler` 只负责新闻采集和基础整理，不负责情绪打分、行业分类、因子构造或回测。
+`crawler` 只负责新闻采集和基础整理，不负责情绪打分、行业分类、因子构造或回测。
 
 推荐的数据流是：
 
 ```text
-财经网站 -> finance_news_crawler -> 统一 JSON -> NLP 分析 -> 因子构造 / 事件研究 / 可视化
+财经网站 -> crawler -> 统一 JSON -> NLP 分析 -> 因子构造 / 事件研究 / 可视化
 ```
 
 这样可以把采集层和研究层解耦：爬虫只管稳定拿数据，后续分析模块只管读标准化后的新闻数据。

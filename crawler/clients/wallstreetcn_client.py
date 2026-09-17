@@ -6,9 +6,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
+from common.logger import get_logger
 from common.models import make_news_record
 from common.utils import DEFAULT_HEADERS, clean_text
 from config import WALLSTREETCN_LIVE_URL, WALLSTREETCN_PAGE_LIMIT, WALLSTREETCN_PAGE_SIZE
+
+logger = get_logger(__name__)
 
 
 class WallStreetCnClient:
@@ -37,7 +40,7 @@ class WallStreetCnClient:
         cursor: Optional[str] = None
 
         for page in range(1, self.page_limit + 1):
-            print(f"Fetching WallStreetCN live page {page}: {WALLSTREETCN_LIVE_URL}")
+            logger.info(f"Fetching WallStreetCN live page {page}: {WALLSTREETCN_LIVE_URL}")
             payload = self._fetch_page(cursor=cursor, first_page=(page == 1))
             data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
             items = data.get("items") if isinstance(data, dict) else []

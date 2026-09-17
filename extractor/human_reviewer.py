@@ -17,8 +17,6 @@
     python human_reviewer.py --input extracted_events.json --review reviewed.json --report
 """
 
-import os
-import re
 import json
 import random
 import argparse
@@ -28,7 +26,6 @@ from datetime import datetime
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "output"
-OUTPUT_DIR.mkdir(exist_ok=True)
 
 
 def load_events(input_path):
@@ -157,13 +154,13 @@ def calculate_metrics(reviewed_items):
 
     # 整体准确率
     fully_correct = sum(
-        1 for item in reviewed if item.get("overall_correct") == True
+        1 for item in reviewed if item.get("overall_correct") is True
     )
     partial_correct = sum(
         1 for item in reviewed if item.get("overall_correct") == "Partial"
     )
     wrong = sum(
-        1 for item in reviewed if item.get("overall_correct") == False
+        1 for item in reviewed if item.get("overall_correct") is False
     )
 
     # 事件级别统计
@@ -219,7 +216,7 @@ def calculate_metrics(reviewed_items):
         "fully_correct": fully_correct,
         "partial_correct": partial_correct,
         "wrong": wrong,
-        "sample_accuracy": fully_correct / total,
+        "sample_accuracy": (fully_correct + 0.5 * partial_correct) / total,
         "predicted_events": total_predicted,
         "correct_events": total_correct_events,
         "missed_events": total_missed,
@@ -304,6 +301,7 @@ def main():
 
     # 模式1：生成抽检样本
     if args.sample > 0:
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         print(f"\n--- 生成抽检样本（模式: {args.mode}, 数量: {args.sample}）---")
         events = load_events(args.input)
         print(f"[加载] 共 {len(events)} 条事件")

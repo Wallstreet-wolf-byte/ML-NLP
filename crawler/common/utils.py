@@ -10,6 +10,9 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import requests
 
+from common.logger import get_logger
+
+logger = get_logger(__name__)
 
 DEFAULT_HEADERS = {
     "User-Agent": (
@@ -74,7 +77,7 @@ def fetch_text(
             last_error = exc
             if attempt < retries:
                 time.sleep(delay)
-    print(f"Request failed: {url} ({last_error})")
+    logger.warning(f"Request failed: {url} ({last_error})")
     return None
 
 

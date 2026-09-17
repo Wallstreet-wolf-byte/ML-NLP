@@ -217,8 +217,8 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Project crawler outputs
-finance_news_crawler/crawler_data/
+# SSH keys — never commit
+.ssh/
 
 .conda/
 .vscode/
@@ -226,3 +226,60 @@ finance_news_crawler/crawler_data/
 
 # External research resources kept locally and not redistributed
 中文金融情感词典_姜富伟等(2020).xlsx
+
+# ============================================================
+# 项目专属忽略规则
+# ============================================================
+
+# --- 数据目录 ---
+# 爬虫输出数据
+crawler/crawler_data/
+crawler_data/
+
+# 语料库数据
+dictionary/corpus/
+corpus/
+merged_corpus.txt
+corpus_*.txt
+
+# 事件抽取输出
+extractor/output/
+output/
+
+# --- 日志目录 ---
+crawler/logs/
+logs/
+*.log
+
+# --- Excel / 数据文件（仅忽略生成目录，模板文件可入库） ---
+dictionary/output/*.xlsx
+dictionary/output/*.xls
+extractor/output/*.xlsx
+extractor/output/*.xls
+*.csv
+*.pkl
+*.parquet
+
+# --- Node.js ---
+node_modules/
+package-lock.json
+
+# --- 编辑器 ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- 系统 ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
