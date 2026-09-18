@@ -112,10 +112,11 @@ class BertSentimentValidator:
         confidence = probs[0][pred_idx].item()
 
         # 统一标签格式为小写英文
+        # 注意：部分模型的 id2label 返回数字 "0"/"1"/"2" 而非文字
         label_lower = label.lower()
-        if "pos" in label_lower:
+        if "pos" in label_lower or label == "1":
             polarity = "positive"
-        elif "neg" in label_lower:
+        elif "neg" in label_lower or label == "2":
             polarity = "negative"
         else:
             polarity = "neutral"
@@ -205,9 +206,9 @@ class BertSentimentValidator:
         total = len(candidates_df)
         print(f"[BERT校验] 开始批量校验 {total} 个候选词...")
 
-        for idx, row in candidates_df.iterrows():
-            if idx % 20 == 0:
-                print(f"  进度: {idx}/{total}")
+        for count, (idx, row) in enumerate(candidates_df.iterrows()):
+            if count % 20 == 0:
+                print(f"  进度: {count}/{total}")
 
             word = str(row.get("word", ""))
             polarity = str(row.get("polarity", ""))
