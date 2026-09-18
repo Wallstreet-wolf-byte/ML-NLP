@@ -488,7 +488,8 @@ class EventExtractor:
         daily_news = defaultdict(list)
         for item in extracted_news:
             time_str = (
-                item.get("time", "")
+                item.get("publish_time", "")
+                or item.get("time", "")
                 or item.get("pub_time", "")
                 or item.get("date", "")
             )
